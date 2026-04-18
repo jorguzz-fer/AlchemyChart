@@ -44,19 +44,15 @@ export default function LoginPage() {
 
         <div className="relative z-10 flex flex-col p-12 text-white w-full h-full">
           <Link href="/" className="flex flex-col gap-1.5 w-fit">
-            <div className="bg-white/95 rounded-2xl px-4 py-2.5 shadow-lg backdrop-blur-sm">
-              <Image
-                src="/logo/logo-horiz.png"
-                alt="Alchemypet"
-                width={160}
-                height={44}
-                className="h-9 w-auto"
-                priority
-              />
-            </div>
-            <span className="text-[10px] text-white/60 font-bold tracking-[0.3em] uppercase pl-1">
-              Control Chart
-            </span>
+            <Image
+              src="/images/control-chat-logo-branco.png"
+              alt="Alchemy Control Chart"
+              width={206}
+              height={60}
+              className="h-14 w-auto"
+              unoptimized
+              priority
+            />
           </Link>
 
           <div className="flex-1 flex items-center py-8">
@@ -115,17 +111,17 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-6 md:p-10 bg-gray-50 dark:bg-[#0c0b0b]">
         <div className="w-full max-w-md">
           {/* Mobile brand */}
-          <div className="lg:hidden flex flex-col items-center gap-1.5 mb-8">
-            <Image
-              src="/logo/logo-horiz.png"
-              alt="Alchemypet"
-              width={160}
-              height={44}
-              className="h-8 w-auto"
-            />
-            <span className="text-[10px] text-gray-400 font-bold tracking-[0.28em] uppercase">
-              Control Chart
-            </span>
+          <div className="lg:hidden flex justify-center mb-8">
+            <div className="alchemy-gradient rounded-2xl px-6 py-3">
+              <Image
+                src="/images/control-chat-logo-branco.png"
+                alt="Alchemy Control Chart"
+                width={172}
+                height={50}
+                className="h-10 w-auto"
+                unoptimized
+              />
+            </div>
           </div>
 
           <div className="bg-white dark:bg-[#141414] rounded-2xl border border-gray-100 dark:border-[#1a1a1a] p-8 md:p-10 shadow-sm">
