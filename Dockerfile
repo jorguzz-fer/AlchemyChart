@@ -36,8 +36,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 
-# Prisma CLI (v6) + WASM engine (prisma_schema_build_bg.wasm fica em .bin/)
-COPY --from=builder /app/node_modules/.bin/prisma* ./node_modules/.bin/
+# Prisma v6: WASM e CLI ficam em node_modules/prisma/build/ (não em .bin/)
+# entrypoint.sh usa node node_modules/prisma/build/index.js diretamente
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
