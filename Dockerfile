@@ -36,8 +36,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 
-# Prisma CLI (v6) disponível para rodar migrations no startup
-COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+# Prisma CLI (v6) + WASM engine (prisma_schema_build_bg.wasm fica em .bin/)
+COPY --from=builder /app/node_modules/.bin/prisma* ./node_modules/.bin/
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
