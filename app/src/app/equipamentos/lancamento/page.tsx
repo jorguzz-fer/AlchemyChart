@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 interface Analyte {
@@ -37,7 +37,7 @@ const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
   error: { label: "ERRO", cls: "text-danger-500 text-xs" },
 };
 
-export default function LancamentoEmMassaPage() {
+function LancamentoInner() {
   const searchParams = useSearchParams();
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [selectedEquipId, setSelectedEquipId] = useState<string>("");
@@ -303,5 +303,13 @@ export default function LancamentoEmMassaPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function LancamentoEmMassaPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-400">Carregando…</div>}>
+      <LancamentoInner />
+    </Suspense>
   );
 }

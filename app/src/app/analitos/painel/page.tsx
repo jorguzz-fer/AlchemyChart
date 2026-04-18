@@ -2,7 +2,7 @@
 
 import LeveyJenningsChart from "@/components/LeveyJenningsChart";
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 interface RunRecord {
@@ -52,7 +52,7 @@ const STATUS_STYLES: Record<string, string> = {
   REJECT: "bg-danger-50 text-danger-700",
 };
 
-export default function PainelControle() {
+function PainelControleInner() {
   const searchParams = useSearchParams();
   const [analytes, setAnalytes] = useState<Analyte[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
@@ -343,6 +343,14 @@ export default function PainelControle() {
         </>
       )}
     </div>
+  );
+}
+
+export default function PainelControle() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-400">Carregando…</div>}>
+      <PainelControleInner />
+    </Suspense>
   );
 }
 
