@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 interface SidebarMenuProps {
@@ -72,21 +73,19 @@ const SidebarMenu: React.FC<SidebarMenuProps> = () => {
       style={{ boxShadow: "0 0 20px rgba(109, 58, 140, 0.08)" }}
     >
       {/* Brand */}
-      <div className="px-6 py-5 border-b border-gray-100 dark:border-[#1a1a1a] sticky top-0 bg-white dark:bg-[#0c0b0b] z-10">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl alchemy-gradient flex items-center justify-center shadow-md">
-            <span className="material-symbols-outlined text-white text-xl">
-              science
-            </span>
-          </div>
-          <div>
-            <h5 className="text-primary-500 font-bold leading-tight mb-0">
-              Alchemy
-            </h5>
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium tracking-wide">
-              CONTROL CHART
-            </span>
-          </div>
+      <div className="px-5 py-4 border-b border-gray-100 dark:border-[#1a1a1a] sticky top-0 bg-white dark:bg-[#0c0b0b] z-10">
+        <Link href="/dashboard" className="flex flex-col gap-1">
+          <Image
+            src="/logo/logo-horiz.png"
+            alt="Alchemypet"
+            width={160}
+            height={44}
+            className="h-8 w-auto dark:brightness-0 dark:invert"
+            priority
+          />
+          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-[0.28em] uppercase pl-0.5">
+            Control Chart
+          </span>
         </Link>
       </div>
 

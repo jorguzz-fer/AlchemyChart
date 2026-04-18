@@ -171,7 +171,7 @@ export default function DashboardPage() {
 
       {/* Equipment panel */}
       <div className="bg-white dark:bg-[#141414] rounded-2xl border border-gray-100 dark:border-[#1a1a1a] overflow-hidden">
-        <div className="alchemy-gradient-blue px-6 py-5 text-white flex items-center justify-between">
+        <div className="alchemy-gradient px-6 py-5 text-white flex items-center justify-between">
           <div>
             <h3 className="text-white font-bold text-lg mb-0">
               Painel de Equipamentos

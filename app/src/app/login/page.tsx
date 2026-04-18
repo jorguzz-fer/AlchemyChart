@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -8,12 +10,27 @@ export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    // TODO: integrar Auth.js (credentials provider)
-    setTimeout(() => router.push("/dashboard"), 400);
+    setError(null);
+
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      setError("E-mail ou senha incorretos.");
+      setSubmitting(false);
+    } else {
+      router.push("/dashboard");
+    }
   };
 
   return (
@@ -25,21 +42,24 @@ export default function LoginPage() {
           <div className="absolute bottom-20 right-10 w-96 h-96 bg-secondary-400 rounded-full blur-3xl" />
         </div>
 
-        <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
-          <Link href="/" className="flex items-center gap-3 w-fit">
-            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <span className="material-symbols-outlined text-white text-2xl">
-                science
-              </span>
+        <div className="relative z-10 flex flex-col p-12 text-white w-full h-full">
+          <Link href="/" className="flex flex-col gap-1.5 w-fit">
+            <div className="bg-white/95 rounded-2xl px-4 py-2.5 shadow-lg backdrop-blur-sm">
+              <Image
+                src="/logo/logo-horiz.png"
+                alt="Alchemypet"
+                width={160}
+                height={44}
+                className="h-9 w-auto"
+                priority
+              />
             </div>
-            <div>
-              <h4 className="text-white font-bold leading-tight mb-0">Alchemy</h4>
-              <span className="text-xs text-white/80 font-medium tracking-widest">
-                CONTROL CHART
-              </span>
-            </div>
+            <span className="text-[10px] text-white/60 font-bold tracking-[0.3em] uppercase pl-1">
+              Control Chart
+            </span>
           </Link>
 
+          <div className="flex-1 flex items-center py-8">
           <div>
             <h1 className="text-white text-4xl md:text-5xl font-bold leading-tight mb-4">
               Controle de Qualidade
@@ -76,6 +96,7 @@ export default function LoginPage() {
               </div>
             </div>
           </div>
+          </div>
 
           <div className="flex items-center gap-6 text-sm text-white/80">
             <span>© {new Date().getFullYear()} Alchemypet</span>
@@ -94,26 +115,21 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-6 md:p-10 bg-gray-50 dark:bg-[#0c0b0b]">
         <div className="w-full max-w-md">
           {/* Mobile brand */}
-          <div className="lg:hidden flex justify-center mb-8">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl alchemy-gradient flex items-center justify-center shadow-lg">
-                <span className="material-symbols-outlined text-white text-2xl">
-                  science
-                </span>
-              </div>
-              <div>
-                <h4 className="text-primary-500 font-bold leading-tight mb-0">
-                  Alchemy
-                </h4>
-                <span className="text-xs text-gray-500 font-medium tracking-widest">
-                  CONTROL CHART
-                </span>
-              </div>
-            </Link>
+          <div className="lg:hidden flex flex-col items-center gap-1.5 mb-8">
+            <Image
+              src="/logo/logo-horiz.png"
+              alt="Alchemypet"
+              width={160}
+              height={44}
+              className="h-8 w-auto"
+            />
+            <span className="text-[10px] text-gray-400 font-bold tracking-[0.28em] uppercase">
+              Control Chart
+            </span>
           </div>
 
           <div className="bg-white dark:bg-[#141414] rounded-2xl border border-gray-100 dark:border-[#1a1a1a] p-8 md:p-10 shadow-sm">
-            <h2 className="text-2xl md:text-3xl text-black dark:text-white font-bold mb-2">
+            <h2 className="text-2xl md:text-3xl font-bold mb-2" style={{ color: '#b38d03' }}>
               Bem-vindo de volta
             </h2>
             <p className="text-gray-500 dark:text-gray-400 mb-8">
@@ -138,6 +154,8 @@ export default function LoginPage() {
                     required
                     placeholder="seu@email.com"
                     autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 dark:border-[#1a1a1a] bg-gray-50 dark:bg-[#0c0b0b] text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
                   />
                 </div>
@@ -168,6 +186,8 @@ export default function LoginPage() {
                     required
                     placeholder="••••••••"
                     autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-10 pr-11 py-3 rounded-lg border border-gray-200 dark:border-[#1a1a1a] bg-gray-50 dark:bg-[#0c0b0b] text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
                   />
                   <button
@@ -190,6 +210,13 @@ export default function LoginPage() {
                 />
                 Manter-me conectado
               </label>
+
+              {error && (
+                <div className="flex items-center gap-2 text-sm text-danger-600 bg-danger-50 border border-danger-200 rounded-lg px-3 py-2">
+                  <span className="material-symbols-outlined text-[16px]">error</span>
+                  {error}
+                </div>
+              )}
 
               <button
                 type="submit"

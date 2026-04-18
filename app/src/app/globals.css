@@ -135,34 +135,36 @@
   --shadow-3xl: rgba(145, 85, 167, 0.15) 0px 8px 24px;
 }
 
-/* Base body */
-html,
-body {
-  @apply font-body text-sm md:text-base !p-0 !overflow-y-auto text-gray-600 bg-gray-50 leading-normal dark:bg-[#0c0b0b] dark:text-gray-300;
-}
-
-p {
-  @apply mb-[15px] leading-[1.8];
-  &:last-child {
-    @apply mb-0;
+@layer base {
+  /* Base body */
+  html,
+  body {
+    @apply font-body text-sm md:text-base !p-0 !overflow-y-auto text-gray-600 bg-gray-50 leading-normal dark:bg-[#0c0b0b] dark:text-gray-300;
   }
-}
 
-/* Typography */
-h1, .h1, .display-1 { @apply text-4xl; }
-h2, .h2, .display-2 { @apply text-3xl; }
-h3, .h3, .display-3 { @apply text-2xl; }
-h4, .h4, .display-4 { @apply text-xl; }
-h5, .h5, .display-5 { @apply text-md md:text-lg; }
-h6, .h6, .display-6 { @apply text-base; }
+  p {
+    @apply mb-[15px] leading-[1.8];
+    &:last-child {
+      @apply mb-0;
+    }
+  }
 
-h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6,
-.display-1, .display-2, .display-3, .display-4, .display-5, .display-6 {
-  @apply text-black font-bold leading-tight mb-[10px] dark:text-white;
-}
+  /* Typography — dentro de @layer base para que utilities (text-white etc.) possam sobrescrever */
+  h1, .h1, .display-1 { @apply text-4xl; }
+  h2, .h2, .display-2 { @apply text-3xl; }
+  h3, .h3, .display-3 { @apply text-2xl; }
+  h4, .h4, .display-4 { @apply text-xl; }
+  h5, .h5, .display-5 { @apply text-md md:text-lg; }
+  h6, .h6, .display-6 { @apply text-base; }
 
-button {
-  @apply cursor-pointer;
+  h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6,
+  .display-1, .display-2, .display-3, .display-4, .display-5, .display-6 {
+    @apply text-black font-bold leading-tight mb-[10px] dark:text-white;
+  }
+
+  button {
+    @apply cursor-pointer;
+  }
 }
 
 /* Sidebar */
