@@ -78,8 +78,9 @@ const SidebarMenu: React.FC<SidebarMenuProps> = () => {
           <Image
             src="/logo/logo-horiz.png"
             alt="Alchemypet"
-            width={160}
-            height={44}
+            width={0}
+            height={0}
+            sizes="200px"
             className="h-8 w-auto dark:brightness-0 dark:invert"
             priority
           />
