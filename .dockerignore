@@ -1,0 +1,10 @@
+trezo-admin-full-version
+reuniões
+screenShots
+.claude
+README.md
+app/.next
+app/node_modules
+app/.env.local
+**/.git
+**/node_modules
