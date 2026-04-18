@@ -35,10 +35,9 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/migrate.js ./migrate.js
 
-# Prisma v6: WASM e CLI ficam em node_modules/prisma/build/ (não em .bin/)
-# entrypoint.sh usa node node_modules/prisma/build/index.js diretamente
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+# @prisma/client + engines para o migrate.js (sem CLI do Prisma)
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 COPY --chown=nextjs:nodejs entrypoint.sh ./entrypoint.sh
