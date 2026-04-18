@@ -3,6 +3,7 @@
 import LeveyJenningsChart from "@/components/LeveyJenningsChart";
 import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 
 interface RunRecord {
   id: string;
@@ -52,6 +53,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function PainelControle() {
+  const searchParams = useSearchParams();
   const [analytes, setAnalytes] = useState<Analyte[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [data, setData] = useState<PainelData | null>(null);
@@ -67,9 +69,11 @@ export default function PainelControle() {
       .then((list: Analyte[]) => {
         const active = list.filter((a: Analyte & { active?: boolean }) => a.active !== false);
         setAnalytes(active);
-        if (active.length > 0) setSelectedId(active[0].id);
+        const paramId = searchParams.get("id");
+        const initial = paramId && active.find((a) => a.id === paramId) ? paramId : active[0]?.id ?? "";
+        setSelectedId(initial);
       });
-  }, []);
+  }, [searchParams]);
 
   const loadData = useCallback(async (id: string) => {
     if (!id) return;

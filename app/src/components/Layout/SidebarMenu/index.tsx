@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -9,63 +9,92 @@ interface SidebarMenuProps {
   toggleActive: () => void;
 }
 
-interface MenuItem {
-  label: string;
-  icon: string;
-  href?: string;
-  children?: { label: string; href: string }[];
+interface AnalyteItem {
+  id: string;
+  name: string;
+  level: number;
 }
 
-const MENU: MenuItem[] = [
-  { label: "Dashboard", icon: "dashboard", href: "/dashboard" },
-  {
-    label: "Por Analitos",
-    icon: "biotech",
-    children: [
-      { label: "Lista de Analitos", href: "/analitos" },
-      { label: "Painel de Controle", href: "/analitos/painel" },
-    ],
-  },
-  {
-    label: "Por Equipamentos",
-    icon: "settings_applications",
-    children: [
-      { label: "Lista de Equipamentos", href: "/equipamentos" },
-      { label: "Lançamento em Massa", href: "/equipamentos/lancamento" },
-    ],
-  },
-  { label: "Materiais", icon: "science", href: "/materiais" },
-  {
-    label: "Auditoria",
-    icon: "fact_check",
-    children: [{ label: "Frequência", href: "/auditoria" }],
-  },
-  {
-    label: "Relatórios",
-    icon: "summarize",
-    children: [
-      { label: "Controles Ativos", href: "/relatorios/controles-ativos" },
-      { label: "Revisão em Preparo", href: "/relatorios/revisao-preparo" },
-      { label: "Não Conformidades", href: "/relatorios/nao-conformidades" },
-      { label: "Intervenções", href: "/relatorios/intervencoes" },
-      { label: "Incertezas", href: "/relatorios/incertezas" },
-    ],
-  },
-  { label: "Assistente de Erros", icon: "report_problem", href: "/assistente-erros" },
+interface EquipmentItem {
+  id: string;
+  name: string;
+}
+
+const RELATORIOS = [
+  { label: "Controles Ativos", href: "/relatorios/controles-ativos" },
+  { label: "Revisão em preparo (Material)", href: "/relatorios/revisao-material" },
+  { label: "Revisão em preparo (Data)", href: "/relatorios/revisao-data" },
+  { label: "Equipamentos/Analitos", href: "/relatorios/equipamentos-analitos" },
+  { label: "Não Conformidades", href: "/relatorios/nao-conformidades" },
+  { label: "Intervenção em Equipamentos", href: "/relatorios/intervencoes" },
+  { label: "Relatório de Incertezas", href: "/relatorios/incertezas" },
 ];
+
+function SearchInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="relative mx-3 mb-2">
+      <input
+        type="text"
+        placeholder="Pesquisar..."
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full pl-3 pr-8 py-1.5 text-xs rounded-md border border-gray-200 dark:border-[#2a2a2a] bg-gray-50 dark:bg-[#0c0b0b] text-gray-700 dark:text-gray-300 focus:outline-none focus:border-primary-400"
+      />
+      <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-[16px]">
+        search
+      </span>
+    </div>
+  );
+}
 
 const SidebarMenu: React.FC<SidebarMenuProps> = () => {
   const pathname = usePathname();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+  const [analytes, setAnalytes] = useState<AnalyteItem[]>([]);
+  const [equipments, setEquipments] = useState<EquipmentItem[]>([]);
+  const [analyteSearch, setAnalyteSearch] = useState("");
+  const [equipSearch, setEquipSearch] = useState("");
+  const [auditSearch, setAuditSearch] = useState("");
 
-  const toggleMenu = (label: string) => {
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/analitos").then((r) => r.json()).catch(() => []),
+      fetch("/api/equipamentos").then((r) => r.json()).catch(() => []),
+    ]).then(([anal, eq]) => {
+      if (Array.isArray(anal)) setAnalytes(anal);
+      if (Array.isArray(eq)) setEquipments(eq);
+    });
+  }, []);
+
+  const toggleMenu = (label: string) =>
     setOpenMenus((prev) => ({ ...prev, [label]: !prev[label] }));
-  };
 
-  const isActive = (href?: string) => {
-    if (!href) return false;
-    return pathname === href || pathname.startsWith(href + "/");
-  };
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(href + "/");
+
+  const filteredAnalytes = analytes.filter((a) =>
+    a.name.toLowerCase().includes(analyteSearch.toLowerCase())
+  );
+  const filteredEquipments = equipments.filter((e) =>
+    e.name.toLowerCase().includes(equipSearch.toLowerCase())
+  );
+  const filteredAudit = equipments.filter((e) =>
+    e.name.toLowerCase().includes(auditSearch.toLowerCase())
+  );
+
+  const subLinkClass = (href: string) =>
+    `block px-3 py-1.5 text-xs rounded-md transition-all ${
+      isActive(href)
+        ? "text-primary-600 font-semibold bg-primary-50 dark:bg-[#1a1a1a]"
+        : "text-gray-600 dark:text-gray-400 hover:text-primary-500 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
+    }`;
+
+  const sectionBtnClass = (key: string) =>
+    `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left ${
+      openMenus[key]
+        ? "bg-primary-50 text-primary-700 dark:bg-[#1a1a1a] dark:text-primary-400"
+        : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
+    }`;
 
   return (
     <aside
@@ -109,85 +138,184 @@ const SidebarMenu: React.FC<SidebarMenuProps> = () => {
         ))}
       </div>
 
-      {/* Main menu */}
+      {/* Nav */}
       <nav className="px-3 py-4">
         <ul className="space-y-1">
-          {MENU.map((item) => {
-            const hasChildren = !!item.children?.length;
-            const isOpen = openMenus[item.label];
-            const active = isActive(item.href);
 
-            return (
-              <li key={item.label}>
-                {hasChildren ? (
-                  <>
-                    <button
-                      onClick={() => toggleMenu(item.label)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left ${
-                        isOpen
-                          ? "bg-primary-50 text-primary-700 dark:bg-[#1a1a1a]"
-                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[20px]">
-                        {item.icon}
-                      </span>
-                      <span className="flex-1 text-sm font-medium">
-                        {item.label}
-                      </span>
-                      <span
-                        className={`material-symbols-outlined text-[18px] transition-transform ${
-                          isOpen ? "rotate-180" : ""
-                        }`}
+          {/* Dashboard */}
+          <li>
+            <Link
+              href="/dashboard"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                isActive("/dashboard")
+                  ? "alchemy-gradient text-white shadow-md"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[20px]">dashboard</span>
+              <span className="text-sm font-medium">Dashboard</span>
+            </Link>
+          </li>
+
+          {/* Por Analitos — dynamic */}
+          <li>
+            <button onClick={() => toggleMenu("analitos")} className={sectionBtnClass("analitos")}>
+              <span className="material-symbols-outlined text-[20px]">biotech</span>
+              <span className="flex-1 text-sm font-medium">por Analitos</span>
+              <span className={`material-symbols-outlined text-[18px] transition-transform ${openMenus["analitos"] ? "rotate-180" : ""}`}>
+                expand_more
+              </span>
+            </button>
+            {openMenus["analitos"] && (
+              <div className="mt-1">
+                <SearchInput value={analyteSearch} onChange={setAnalyteSearch} />
+                <ul className="max-h-56 overflow-y-auto space-y-0.5 px-1">
+                  {filteredAnalytes.length === 0 && (
+                    <li className="px-3 py-2 text-xs text-gray-400">Nenhum resultado</li>
+                  )}
+                  {filteredAnalytes.map((a) => (
+                    <li key={a.id}>
+                      <Link
+                        href={`/analitos/painel?id=${a.id}`}
+                        className={`${subLinkClass(`/analitos/painel?id=${a.id}`)} flex items-center justify-between`}
                       >
-                        expand_more
-                      </span>
-                    </button>
-                    {isOpen && (
-                      <ul className="mt-1 ml-8 space-y-0.5">
-                        {item.children!.map((sub) => (
-                          <li key={sub.href}>
-                            <Link
-                              href={sub.href}
-                              className={`block px-3 py-2 text-sm rounded-md transition-all ${
-                                isActive(sub.href)
-                                  ? "text-primary-600 font-semibold"
-                                  : "text-gray-600 dark:text-gray-400 hover:text-primary-500"
-                              }`}
-                            >
-                              {sub.label}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                ) : (
-                  <Link
-                    href={item.href!}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
-                      active
-                        ? "alchemy-gradient text-white shadow-md"
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[20px]">
-                      {item.icon}
-                    </span>
-                    <span className="text-sm font-medium">{item.label}</span>
+                        <span>{a.name} ({a.level})</span>
+                        <span className="material-symbols-outlined text-[14px] text-gray-300">unfold_more</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-1 px-1 space-y-0.5 border-t border-gray-100 dark:border-[#1a1a1a] pt-1">
+                  <Link href="/analitos/painel" className={subLinkClass("/analitos/painel")}>
+                    Painel de Controle
                   </Link>
-                )}
-              </li>
-            );
-          })}
+                  <Link href="/analitos" className={subLinkClass("/analitos")}>
+                    Lista de Analitos
+                  </Link>
+                </div>
+              </div>
+            )}
+          </li>
+
+          {/* Por Equipamentos — dynamic */}
+          <li>
+            <button onClick={() => toggleMenu("equipamentos")} className={sectionBtnClass("equipamentos")}>
+              <span className="material-symbols-outlined text-[20px]">settings_applications</span>
+              <span className="flex-1 text-sm font-medium">por Equipamentos</span>
+              <span className={`material-symbols-outlined text-[18px] transition-transform ${openMenus["equipamentos"] ? "rotate-180" : ""}`}>
+                expand_more
+              </span>
+            </button>
+            {openMenus["equipamentos"] && (
+              <div className="mt-1">
+                <SearchInput value={equipSearch} onChange={setEquipSearch} />
+                <ul className="max-h-56 overflow-y-auto space-y-0.5 px-1">
+                  {filteredEquipments.length === 0 && (
+                    <li className="px-3 py-2 text-xs text-gray-400">Nenhum resultado</li>
+                  )}
+                  {filteredEquipments.map((e) => (
+                    <li key={e.id}>
+                      <Link href={`/equipamentos/lancamento?equipment=${e.id}`} className={subLinkClass(`/equipamentos/lancamento?equipment=${e.id}`)}>
+                        {e.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-1 px-1">
+                  <Link href="/equipamentos" className={subLinkClass("/equipamentos")}>
+                    Lista de Equipamentos
+                  </Link>
+                </div>
+              </div>
+            )}
+          </li>
+
+          {/* Materiais */}
+          <li>
+            <Link
+              href="/materiais"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                isActive("/materiais")
+                  ? "alchemy-gradient text-white shadow-md"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[20px]">science</span>
+              <span className="text-sm font-medium">Materiais</span>
+            </Link>
+          </li>
+
+          {/* Auditoria — dynamic */}
+          <li>
+            <button onClick={() => toggleMenu("auditoria")} className={sectionBtnClass("auditoria")}>
+              <span className="material-symbols-outlined text-[20px]">fact_check</span>
+              <span className="flex-1 text-sm font-medium">Auditoria</span>
+              <span className={`material-symbols-outlined text-[18px] transition-transform ${openMenus["auditoria"] ? "rotate-180" : ""}`}>
+                expand_more
+              </span>
+            </button>
+            {openMenus["auditoria"] && (
+              <div className="mt-1">
+                <SearchInput value={auditSearch} onChange={setAuditSearch} />
+                <ul className="max-h-48 overflow-y-auto space-y-0.5 px-1">
+                  {filteredAudit.length === 0 && (
+                    <li className="px-3 py-2 text-xs text-gray-400">Nenhum resultado</li>
+                  )}
+                  {filteredAudit.map((e) => (
+                    <li key={e.id}>
+                      <Link href={`/auditoria?equipment=${e.id}`} className={subLinkClass(`/auditoria?equipment=${e.id}`)}>
+                        {e.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </li>
+
+          {/* Relatórios */}
+          <li>
+            <button onClick={() => toggleMenu("relatorios")} className={sectionBtnClass("relatorios")}>
+              <span className="material-symbols-outlined text-[20px]">summarize</span>
+              <span className="flex-1 text-sm font-medium">Relatórios</span>
+              <span className={`material-symbols-outlined text-[18px] transition-transform ${openMenus["relatorios"] ? "rotate-180" : ""}`}>
+                expand_more
+              </span>
+            </button>
+            {openMenus["relatorios"] && (
+              <ul className="mt-1 ml-8 space-y-0.5">
+                {RELATORIOS.map((item) => (
+                  <li key={item.href}>
+                    <Link href={item.href} className={subLinkClass(item.href)}>
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+
+          {/* Assistente de Erros */}
+          <li>
+            <Link
+              href="/assistente-erros"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                isActive("/assistente-erros")
+                  ? "alchemy-gradient text-white shadow-md"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[20px]">report_problem</span>
+              <span className="text-sm font-medium">Assistente de Erros</span>
+            </Link>
+          </li>
+
         </ul>
       </nav>
 
       {/* Plan badge */}
       <div className="mx-4 my-4 p-4 rounded-xl alchemy-gradient text-white text-center">
-        <p className="text-xs opacity-90 mb-1 font-semibold tracking-wide">
-          PLANO PREMIUM
-        </p>
+        <p className="text-xs opacity-90 mb-1 font-semibold tracking-wide">PLANO PREMIUM</p>
         <p className="text-xs opacity-75 leading-snug">
           Acesso completo aos recursos
           <br />de CQI laboratorial
