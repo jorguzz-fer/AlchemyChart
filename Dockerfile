@@ -2,6 +2,9 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 
+# Força development para incluir devDependencies (prisma CLI, typescript, etc.)
+ENV NODE_ENV=development
+
 COPY app/package.json app/package-lock.json* ./
 RUN npm ci --legacy-peer-deps
 
@@ -9,11 +12,14 @@ RUN npm ci --legacy-peer-deps
 FROM node:22-alpine AS builder
 WORKDIR /app
 
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY app/ .
 
-ENV NEXT_TELEMETRY_DISABLED=1
-RUN npx prisma generate
+# Usa o binary local (prisma@6) em vez de npx que baixa a latest (v7)
+RUN ./node_modules/.bin/prisma generate
 RUN npm run build
 
 # ─── Stage 3: runner ─────────────────────────────────────────────────────────
@@ -31,7 +37,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 
-# Prisma CLI disponível para rodar migrations no startup
+# Prisma CLI (v6) disponível para rodar migrations no startup
 COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
