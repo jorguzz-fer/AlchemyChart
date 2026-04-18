@@ -8,6 +8,7 @@ export async function GET() {
 
   const items = await prisma.material.findMany({
     where: { unit: { tenantId: session.user.tenantId } },
+    include: { _count: { select: { analytes: true } } },
     orderBy: { name: "asc" },
   });
 
