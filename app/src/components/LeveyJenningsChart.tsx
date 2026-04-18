@@ -31,8 +31,8 @@ export default function LeveyJenningsChart({ mean, sd, values, height = 320 }: P
     v > s3p || v < s3n
       ? "#ed1566"
       : v > s2p || v < s2n
-        ? "#b8941f"
-        : "#6d3a8c",
+        ? "#d9ac04"
+        : "#9155a7",
   );
 
   const options: ApexOptions = {
@@ -44,7 +44,7 @@ export default function LeveyJenningsChart({ mean, sd, values, height = 320 }: P
       fontFamily: "Raleway, sans-serif",
     },
     stroke: { curve: "straight", width: [3] },
-    colors: ["#6d3a8c"],
+    colors: ["#9155a7"],
     markers: {
       size: 6,
       colors: markerColors,
@@ -75,11 +75,11 @@ export default function LeveyJenningsChart({ mean, sd, values, height = 320 }: P
     annotations: {
       yaxis: [
         { y: s3p, borderColor: "#ed1566", strokeDashArray: 0, label: { text: "+3s", style: { color: "#fff", background: "#ed1566", fontSize: "10px" } } },
-        { y: s2p, borderColor: "#b8941f", strokeDashArray: 4, label: { text: "+2s", style: { color: "#fff", background: "#b8941f", fontSize: "10px" } } },
+        { y: s2p, borderColor: "#d9ac04", strokeDashArray: 4, label: { text: "+2s", style: { color: "#fff", background: "#d9ac04", fontSize: "10px" } } },
         { y: s1p, borderColor: "#00ad2e", strokeDashArray: 4, label: { text: "+1s", style: { color: "#fff", background: "#00ad2e", fontSize: "10px" } } },
-        { y: mean, borderColor: "#6d3a8c", strokeDashArray: 0, label: { text: `Xm = ${mean.toFixed(2)}`, style: { color: "#fff", background: "#6d3a8c", fontSize: "10px" } } },
+        { y: mean, borderColor: "#9155a7", strokeDashArray: 0, label: { text: `Xm = ${mean.toFixed(2)}`, style: { color: "#fff", background: "#9155a7", fontSize: "10px" } } },
         { y: s1n, borderColor: "#00ad2e", strokeDashArray: 4, label: { text: "-1s", style: { color: "#fff", background: "#00ad2e", fontSize: "10px" } } },
-        { y: s2n, borderColor: "#b8941f", strokeDashArray: 4, label: { text: "-2s", style: { color: "#fff", background: "#b8941f", fontSize: "10px" } } },
+        { y: s2n, borderColor: "#d9ac04", strokeDashArray: 4, label: { text: "-2s", style: { color: "#fff", background: "#d9ac04", fontSize: "10px" } } },
         { y: s3n, borderColor: "#ed1566", strokeDashArray: 0, label: { text: "-3s", style: { color: "#fff", background: "#ed1566", fontSize: "10px" } } },
       ],
     },

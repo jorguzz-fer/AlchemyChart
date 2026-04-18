@@ -9,7 +9,6 @@ const nextConfig: NextConfig = {
     "prisma",
     "@auth/core",
     "@auth/prisma-adapter",
-    "next-auth",
     "bcryptjs",
   ],
   images: {
