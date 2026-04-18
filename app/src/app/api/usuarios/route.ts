@@ -23,7 +23,8 @@ export async function GET() {
     orderBy: [{ active: "desc" }, { name: "asc" }],
   });
 
-  return NextResponse.json(users);
+  const withSelf = users.map((u) => ({ ...u, isSelf: u.id === session.user.id }));
+  return NextResponse.json(withSelf);
 }
 
 export async function POST(req: Request) {

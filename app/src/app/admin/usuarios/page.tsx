@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
 
 interface Unit { id: string; name: string }
 
@@ -14,6 +13,7 @@ interface UserItem {
   unitId: string | null;
   unit: { id: string; name: string } | null;
   createdAt: string;
+  isSelf: boolean;
 }
 
 interface FormState {
@@ -37,9 +37,6 @@ const ROLE_META: Record<string, { label: string; desc: string; cls: string }> = 
 };
 
 export default function UsuariosPage() {
-  const { data: session } = useSession();
-  const currentUserId = session?.user?.id;
-
   const [items, setItems] = useState<UserItem[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,7 +111,7 @@ export default function UsuariosPage() {
   };
 
   const handleToggleActive = async (item: UserItem) => {
-    if (item.id === currentUserId) return;
+    if (item.isSelf) return;
     await fetch(`/api/usuarios/${item.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -202,7 +199,7 @@ export default function UsuariosPage() {
               <tbody>
                 {filtered.map((item) => {
                   const roleMeta = ROLE_META[item.role] ?? ROLE_META.VIEWER;
-                  const isSelf = item.id === currentUserId;
+                  const isSelf = item.isSelf;
                   const initial = (item.name ?? item.email).charAt(0).toUpperCase();
                   return (
                     <tr
@@ -347,7 +344,7 @@ export default function UsuariosPage() {
                 <label className="block text-sm font-semibold text-black dark:text-white mb-1.5">Perfil *</label>
                 <select
                   required
-                  disabled={editItem?.id === currentUserId}
+                  disabled={editItem?.isSelf ?? false}
                   value={form.role}
                   onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as FormState["role"] }))}
                   className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-[#1a1a1a] bg-gray-50 dark:bg-[#0c0b0b] focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all disabled:opacity-60"
@@ -357,7 +354,7 @@ export default function UsuariosPage() {
                   <option value="ANALYST">Analista — Lança corridas</option>
                   <option value="VIEWER">Visualizador — Somente leitura</option>
                 </select>
-                {editItem?.id === currentUserId && (
+                {editItem?.isSelf && (
                   <p className="text-[11px] text-gray-400 mt-1">Você não pode alterar seu próprio perfil</p>
                 )}
               </div>
