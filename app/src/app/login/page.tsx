@@ -43,7 +43,7 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 flex flex-col p-12 text-white w-full h-full">
-          <Link href="/">
+          <Link href="/" style={{ marginTop: '200px' }}>
             <Image
               src="/images/control-chat-logo-branco-320x79.png"
               alt="Alchemy Control Chart"
@@ -110,8 +110,8 @@ export default function LoginPage() {
       {/* Direita — Form */}
       <div className="flex-1 flex items-center justify-center p-6 md:p-10 bg-gray-50 dark:bg-[#0c0b0b]">
         <div className="w-full max-w-md">
-          {/* Mobile brand */}
-          <div className="lg:hidden flex justify-center mb-8">
+          {/* Logo acima do form — desktop e mobile */}
+          <div className="flex justify-center mb-8">
             <Image
               src="/images/control-chat-logo-collor320x79.png"
               alt="Alchemy Control Chart"
