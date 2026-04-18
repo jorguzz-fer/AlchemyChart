@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 
 const MENU = [
   { href: "/perfil", icon: "account_circle", label: "Meu perfil" },
@@ -79,13 +80,13 @@ const ProfileMenu: React.FC = () => {
           </ul>
 
           <div className="border-t border-gray-100 dark:border-[#1a1a1a]">
-            <Link
-              href="/logout"
-              className="flex items-center gap-3 px-4 py-3 text-sm text-danger-500 hover:bg-danger-50 dark:hover:bg-[#1a1a1a] transition-all"
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-danger-500 hover:bg-danger-50 dark:hover:bg-[#1a1a1a] transition-all"
             >
               <span className="material-symbols-outlined text-[20px]">logout</span>
               Sair
-            </Link>
+            </button>
           </div>
         </div>
       )}
