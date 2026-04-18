@@ -22,6 +22,8 @@
     "material-symbols": "^0.31.2",
     "next": "15.3.1",
     "next-auth": "^5.0.0-beta.25",
+    "preact": "^10.24.3",
+    "preact-render-to-string": "^6.5.11",
     "react": "^19.0.0",
     "react-apexcharts": "^1.7.0",
     "react-dom": "^19.0.0",
