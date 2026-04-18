@@ -1,0 +1,238 @@
+// Alchemy Control Chart — Prisma Schema
+// Multi-tenant: Tenant (Laboratório) → Unit → User
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth.js required tables ─────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Multi-tenancy ────────────────────────────────────────────────────────────
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      Plan     @default(FREE)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  units     Unit[]
+  users     User[]
+  auditLogs AuditLog[]
+}
+
+model Unit {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  address   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users      User[]
+  equipments Equipment[]
+  materials  Material[]
+  analytes   Analyte[]
+}
+
+model User {
+  id            String    @id @default(cuid())
+  tenantId      String
+  unitId        String?
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  image         String?
+  role          Role      @default(ANALYST)
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit      Unit?      @relation(fields: [unitId], references: [id])
+  accounts  Account[]
+  sessions  Session[]
+  auditLogs AuditLog[]
+  runs      Run[]
+}
+
+// ─── CQI Core ─────────────────────────────────────────────────────────────────
+
+model Equipment {
+  id          String   @id @default(cuid())
+  unitId      String
+  name        String
+  model       String?
+  serial      String?
+  active      Boolean  @default(true)
+  lastMaint   DateTime?
+  nextMaint   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  unit     Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  analytes Analyte[]
+  runs     Run[]
+}
+
+model Material {
+  id         String      @id @default(cuid())
+  unitId     String
+  name       String
+  lot        String?
+  generation String?
+  expiresAt  DateTime?
+  active     Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  unit     Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  analytes Analyte[]
+}
+
+model Analyte {
+  id          String   @id @default(cuid())
+  unitId      String
+  equipmentId String
+  materialId  String
+  name        String
+  unit        String?
+  level       Int      @default(1)  // 1=normal, 2=patológico, 3=intermediário
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  unitRel   Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  equipment Equipment @relation(fields: [equipmentId], references: [id])
+  material  Material  @relation(fields: [materialId], references: [id])
+  stats     StatPeriod[]
+  runs      Run[]
+}
+
+// Estatísticas de um período (média/DP calculados para um conjunto de corridas)
+model StatPeriod {
+  id        String   @id @default(cuid())
+  analyteId String
+  period    String   // ex: "2026-Q1", "2026-01", "USO"
+  mean      Float
+  sd        Float
+  cv        Float
+  n         Int
+  createdAt DateTime @default(now())
+
+  analyte Analyte @relation(fields: [analyteId], references: [id], onDelete: Cascade)
+}
+
+model Run {
+  id          String      @id @default(cuid())
+  analyteId   String
+  equipmentId String
+  userId      String
+  value       Float
+  runAt       DateTime    @default(now())
+  status      RunStatus   @default(OK)
+  violations  String[]    // ex: ["1:3s", "2:2s"]
+  note        String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  analyte   Analyte   @relation(fields: [analyteId], references: [id], onDelete: Cascade)
+  equipment Equipment @relation(fields: [equipmentId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+  nonConformities NonConformity[]
+}
+
+model NonConformity {
+  id          String   @id @default(cuid())
+  runId       String
+  description String
+  action      String?
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  meta      Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Plan {
+  FREE
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum Role {
+  SUPERADMIN   // Alchemy staff
+  ADMIN        // Gestor do laboratório
+  SUPERVISOR   // Supervisor da unidade
+  ANALYST      // Analista (lança corridas)
+  VIEWER       // Somente visualização
+}
+
+enum RunStatus {
+  OK
+  ALERT      // violou ±2s (Alerta)
+  REJECT     // violou ±3s ou outra regra de rejeição (Erro)
+}

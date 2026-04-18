@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+.next/
+out/
+dist/
+
+# Environment — NUNCA commitar secrets
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# Template de referência (não commitar — licença Trezo)
+trezo-admin-full-version/
+
+# Arquivos grandes / reuniões
+reuniões/
+*.mp4
+*.mov
+*.avi
+
+# Misc
+*.pem
+.vercel

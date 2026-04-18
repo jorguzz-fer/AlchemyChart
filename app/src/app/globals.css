@@ -1,0 +1,209 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([class=dark], [class=dark] *));
+
+/* =========================================================
+   Alchemy Control Chart — Design Tokens
+   Paleta derivada dos botões Alchemypet + KV institucional
+   ========================================================= */
+@theme {
+  --font-body: "Raleway", ui-sans-serif, system-ui, sans-serif;
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --text-2xl: 28px;
+  --text-3xl: 32px;
+  --text-4xl: 36px;
+  --text-5xl: 40px;
+
+  --color-white: #ffffff;
+  --color-black: #0c0b0b;
+  --color-dark: #0c0b0b;
+
+  /* Roxo Alchemy — primária (botão "Pedidos de Suprimentos") */
+  --color-primary-50:  #f5edf9;
+  --color-primary-100: #e8d6f0;
+  --color-primary-200: #d1ade1;
+  --color-primary-300: #b886d1;
+  --color-primary-400: #9d60bd;
+  --color-primary-500: #6d3a8c;
+  --color-primary-600: #5c2f78;
+  --color-primary-700: #4b2664;
+  --color-primary-800: #3a1d50;
+  --color-primary-900: #28143c;
+
+  /* Dourado — secundária (botão "Resultado de Exames") */
+  --color-secondary-50:  #fdf7e6;
+  --color-secondary-100: #faecc0;
+  --color-secondary-200: #f5d880;
+  --color-secondary-300: #e8be47;
+  --color-secondary-400: #d3a826;
+  --color-secondary-500: #b8941f;
+  --color-secondary-600: #9a7a18;
+  --color-secondary-700: #7c6113;
+  --color-secondary-800: #5e490e;
+  --color-secondary-900: #403108;
+
+  /* Azul info — (botão "Retirada de Amostra") */
+  --color-info-50:  #ebf5fc;
+  --color-info-100: #cfe5f6;
+  --color-info-200: #9ccbee;
+  --color-info-300: #6aafe3;
+  --color-info-400: #3c8dd8;
+  --color-info-500: #2a78c0;
+  --color-info-600: #2063a0;
+  --color-info-700: #185084;
+  --color-info-800: #113c65;
+  --color-info-900: #0a2846;
+
+  /* Roxo claro — módulo cientifico (compatível com Alchemypet) */
+  --color-purple-50:  #f5edf9;
+  --color-purple-100: #e8d6f0;
+  --color-purple-200: #d1ade1;
+  --color-purple-300: #b886d1;
+  --color-purple-400: #9d60bd;
+  --color-purple-500: #80498f;
+  --color-purple-600: #6a3b77;
+  --color-purple-700: #542e5e;
+  --color-purple-800: #3f2146;
+  --color-purple-900: #29152e;
+
+  /* Verde — sucesso / controle OK */
+  --color-success-50:  #e6f9eb;
+  --color-success-100: #c3f0cf;
+  --color-success-200: #8ae2a4;
+  --color-success-300: #4dcf72;
+  --color-success-400: #1cbd44;
+  --color-success-500: #00ad2e;
+  --color-success-600: #008f26;
+  --color-success-700: #00721e;
+  --color-success-800: #005516;
+  --color-success-900: #00380e;
+
+  /* Dourado/Laranja — alerta (Westgard aviso) */
+  --color-warning-50:  #fdf7e6;
+  --color-warning-100: #faecc0;
+  --color-warning-200: #f5d880;
+  --color-warning-300: #e8be47;
+  --color-warning-400: #d3a826;
+  --color-warning-500: #b8941f;
+  --color-warning-600: #9a7a18;
+  --color-warning-700: #7c6113;
+  --color-warning-800: #5e490e;
+  --color-warning-900: #403108;
+
+  /* Magenta — erro / não conformidade / Westgard rejeitar */
+  --color-danger-50:  #fde8ef;
+  --color-danger-100: #fbc5d7;
+  --color-danger-200: #f78cb0;
+  --color-danger-300: #f35387;
+  --color-danger-400: #ed1566;
+  --color-danger-500: #cf0f57;
+  --color-danger-600: #ab0c48;
+  --color-danger-700: #87093a;
+  --color-danger-800: #63062b;
+  --color-danger-900: #3f041c;
+
+  /* Neutros */
+  --color-gray-50:  #f8f9fa;
+  --color-gray-100: #eef0f2;
+  --color-gray-200: #dde1e7;
+  --color-gray-300: #c2c8d1;
+  --color-gray-400: #9aa1ae;
+  --color-gray-500: #5a5a5a;
+  --color-gray-600: #4a4a4a;
+  --color-gray-700: #3a3a3a;
+  --color-gray-800: #2a2a2a;
+  --color-gray-900: #1a1a1a;
+
+  /* Laranja (usado residualmente — mantém consistência dourada) */
+  --color-orange-50:  #fdf7e6;
+  --color-orange-100: #faecc0;
+  --color-orange-200: #f5d880;
+  --color-orange-300: #e8be47;
+  --color-orange-400: #d3a826;
+  --color-orange-500: #b8941f;
+  --color-orange-600: #9a7a18;
+  --color-orange-700: #7c6113;
+  --color-orange-800: #5e490e;
+  --color-orange-900: #403108;
+
+  --shadow-3xl: rgba(109, 58, 140, 0.15) 0px 8px 24px;
+}
+
+/* Base body */
+html,
+body {
+  @apply font-body text-sm md:text-base !p-0 !overflow-y-auto text-gray-600 bg-gray-50 leading-normal dark:bg-[#0c0b0b] dark:text-gray-300;
+}
+
+p {
+  @apply mb-[15px] leading-[1.8];
+  &:last-child {
+    @apply mb-0;
+  }
+}
+
+/* Typography */
+h1, .h1, .display-1 { @apply text-4xl; }
+h2, .h2, .display-2 { @apply text-3xl; }
+h3, .h3, .display-3 { @apply text-2xl; }
+h4, .h4, .display-4 { @apply text-xl; }
+h5, .h5, .display-5 { @apply text-md md:text-lg; }
+h6, .h6, .display-6 { @apply text-base; }
+
+h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6,
+.display-1, .display-2, .display-3, .display-4, .display-5, .display-6 {
+  @apply text-black font-bold leading-tight mb-[10px] dark:text-white;
+}
+
+button {
+  @apply cursor-pointer;
+}
+
+/* Sidebar */
+.sidebar-area {
+  @apply w-[260px] ltr:-left-full ltr:xl:left-0;
+}
+
+/* Header */
+.header-area {
+  @apply left-[15px] right-[15px] md:left-[25px] md:right-[25px] ltr:xl:left-[285px];
+}
+
+.main-content {
+  @apply pt-[143px] px-[15px] md:pt-[95px] md:pl-[25px] md:pr-[25px] ltr:xl:pl-[285px];
+}
+
+/* Card base */
+.trezo-card {
+  .trezo-card-dropdown {
+    .trezo-card-dropdown-menu {
+      @apply opacity-0 invisible;
+    }
+    &:has(.active) > .trezo-card-dropdown-menu {
+      @apply opacity-100 visible;
+    }
+  }
+}
+
+/* Alchemy brand gradient utility (para botões CTA e headers) */
+.alchemy-gradient {
+  background: linear-gradient(135deg, #6d3a8c 0%, #9d60bd 100%);
+}
+.alchemy-gradient-gold {
+  background: linear-gradient(135deg, #b8941f 0%, #d3a826 100%);
+}
+.alchemy-gradient-blue {
+  background: linear-gradient(135deg, #2a78c0 0%, #3c8dd8 100%);
+}
+
+/* Levey-Jennings chart colors */
+.lj-mean { color: #6d3a8c; }
+.lj-1s   { color: #00ad2e; }
+.lj-2s   { color: #b8941f; }
+.lj-3s   { color: #ed1566; }
