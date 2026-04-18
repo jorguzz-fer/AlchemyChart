@@ -74,19 +74,16 @@ const SidebarMenu: React.FC<SidebarMenuProps> = () => {
     >
       {/* Brand */}
       <div className="px-5 py-4 border-b border-gray-100 dark:border-[#1a1a1a] sticky top-0 bg-white dark:bg-[#0c0b0b] z-10">
-        <Link href="/dashboard" className="flex flex-col gap-1">
+        <Link href="/dashboard">
           <Image
-            src="/images/control-chat-logo-collor.png"
+            src="/images/control-chat-logo-collor220x55.png"
             alt="Alchemy Control Chart"
-            width={110}
-            height={32}
-            className="h-8 w-auto"
+            width={220}
+            height={55}
+            className="w-auto"
             unoptimized
             priority
           />
-          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-[0.28em] uppercase pl-0.5">
-            Control Chart
-          </span>
         </Link>
       </div>
 

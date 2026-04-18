@@ -43,13 +43,13 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 flex flex-col p-12 text-white w-full h-full">
-          <Link href="/" className="flex flex-col gap-1.5 w-fit">
+          <Link href="/">
             <Image
-              src="/images/control-chat-logo-branco.png"
+              src="/images/control-chat-logo-branco-320x79.png"
               alt="Alchemy Control Chart"
-              width={206}
-              height={60}
-              className="h-14 w-auto"
+              width={320}
+              height={79}
+              className="w-auto"
               unoptimized
               priority
             />
@@ -112,16 +112,14 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Mobile brand */}
           <div className="lg:hidden flex justify-center mb-8">
-            <div className="alchemy-gradient rounded-2xl px-6 py-3">
-              <Image
-                src="/images/control-chat-logo-branco.png"
-                alt="Alchemy Control Chart"
-                width={172}
-                height={50}
-                className="h-10 w-auto"
-                unoptimized
-              />
-            </div>
+            <Image
+              src="/images/control-chat-logo-collor320x79.png"
+              alt="Alchemy Control Chart"
+              width={320}
+              height={79}
+              className="w-auto h-14"
+              unoptimized
+            />
           </div>
 
           <div className="bg-white dark:bg-[#141414] rounded-2xl border border-gray-100 dark:border-[#1a1a1a] p-8 md:p-10 shadow-sm">
