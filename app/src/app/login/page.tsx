@@ -251,6 +251,16 @@ export default function LoginPage() {
               Conexão segura — dados criptografados
             </span>
           </div>
+
+          <div className="mt-4 flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+            <Link href="/privacidade" className="hover:text-gray-700 dark:hover:text-gray-200">
+              Privacidade
+            </Link>
+            <span aria-hidden="true">•</span>
+            <Link href="/termos" className="hover:text-gray-700 dark:hover:text-gray-200">
+              Termos
+            </Link>
+          </div>
         </div>
       </div>
     </div>
