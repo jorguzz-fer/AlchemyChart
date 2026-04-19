@@ -1,17 +1,16 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { requireRole, ROLES_ADMIN } from "@/lib/authz";
+import { validatePassword } from "@/lib/password";
+import { logAudit, getClientIp } from "@/lib/audit";
 
 const ALLOWED_ROLES = ["ADMIN", "SUPERVISOR", "ANALYST", "VIEWER"] as const;
 type AllowedRole = (typeof ALLOWED_ROLES)[number];
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN" && session.user.role !== "SUPERADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { session, error } = await requireRole(ROLES_ADMIN);
+  if (error) return error;
 
   const { id } = await params;
   const body = await req.json();
@@ -21,7 +20,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isSelf = target.id === session.user.id;
-  if (isSelf && (role !== undefined && role !== target.role)) {
+  if (isSelf && role !== undefined && role !== target.role) {
     return NextResponse.json({ error: "Você não pode alterar seu próprio perfil" }, { status: 400 });
   }
   if (isSelf && active === false) {
@@ -56,7 +55,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (unitId !== undefined) data.unitId = unitId || null;
   if (active !== undefined) data.active = active;
   if (password) {
-    if (password.length < 8) return NextResponse.json({ error: "Senha deve ter ao menos 8 caracteres" }, { status: 400 });
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.ok) return NextResponse.json({ error: pwCheck.error }, { status: 400 });
     data.passwordHash = await bcrypt.hash(password, 10);
   }
 
@@ -66,15 +66,26 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     select: { id: true, name: true, email: true, role: true, active: true, unitId: true },
   });
 
+  await logAudit({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "user.update",
+    entity: "User",
+    entityId: updated.id,
+    meta: {
+      fieldsChanged: Object.keys(data),
+      passwordChanged: Boolean(password),
+      targetEmail: updated.email,
+    },
+    ip: getClientIp(req),
+  });
+
   return NextResponse.json(updated);
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN" && session.user.role !== "SUPERADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { session, error } = await requireRole(ROLES_ADMIN);
+  if (error) return error;
 
   const { id } = await params;
   if (id === session.user.id) {
@@ -85,5 +96,16 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await prisma.user.update({ where: { id }, data: { active: false } });
+
+  await logAudit({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "user.deactivate",
+    entity: "User",
+    entityId: id,
+    meta: { targetEmail: target.email },
+    ip: getClientIp(req),
+  });
+
   return NextResponse.json({ ok: true });
 }
