@@ -1,9 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type KpiTone = "danger" | "warning" | "info" | "success";
+
+const RANGE_OPTIONS = [
+  { days: 7, label: "Últimos 7 dias" },
+  { days: 15, label: "Últimos 15 dias" },
+  { days: 30, label: "Últimos 30 dias" },
+  { days: 60, label: "Últimos 60 dias" },
+  { days: 90, label: "Últimos 90 dias" },
+  { days: 180, label: "Últimos 180 dias" },
+];
 
 interface DashboardData {
   kpis: {
@@ -40,13 +49,30 @@ function fmtDate(iso: string | null) {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [days, setDays] = useState<number>(90);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    fetch("/api/dashboard")
+    setLoading(true);
+    fetch(`/api/dashboard?days=${days}`)
       .then((r) => r.json())
       .then((d) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []);
+  }, [days]);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [pickerOpen]);
+
+  const currentRange = RANGE_OPTIONS.find((r) => r.days === days) ?? RANGE_OPTIONS[4];
 
   const kpis = [
     { label: "Não conformidades", value: data?.kpis.nonConformities ?? 0, icon: "error", tone: "danger" as KpiTone, href: "/relatorios/nao-conformidades", linkLabel: "Ver não conformidades" },
@@ -56,7 +82,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-[50px]">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -65,9 +91,47 @@ export default function DashboardPage() {
             Visão geral do controle de qualidade interno dos seus equipamentos e analitos.
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-white dark:bg-[#141414] rounded-lg border border-gray-100 dark:border-[#1a1a1a] px-4 py-2">
-          <span className="material-symbols-outlined text-primary-500 text-[20px]">calendar_today</span>
-          <span className="text-sm text-gray-500 dark:text-gray-400">Últimos 90 dias</span>
+        <div ref={pickerRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setPickerOpen((p) => !p)}
+            aria-haspopup="listbox"
+            aria-expanded={pickerOpen}
+            className="flex items-center gap-2 bg-white dark:bg-[#141414] rounded-lg border border-gray-100 dark:border-[#1a1a1a] px-4 py-2 hover:border-primary-300 dark:hover:border-primary-500/40 transition-colors"
+          >
+            <span className="material-symbols-outlined text-primary-500 text-[20px]">calendar_today</span>
+            <span className="text-sm text-gray-700 dark:text-gray-200 font-medium">{currentRange.label}</span>
+            <span className={`material-symbols-outlined text-gray-400 text-[18px] transition-transform ${pickerOpen ? "rotate-180" : ""}`}>
+              expand_more
+            </span>
+          </button>
+          {pickerOpen && (
+            <div
+              role="listbox"
+              className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#141414] rounded-lg border border-gray-100 dark:border-[#1a1a1a] shadow-lg z-20 overflow-hidden"
+            >
+              {RANGE_OPTIONS.map((opt) => {
+                const selected = opt.days === days;
+                return (
+                  <button
+                    key={opt.days}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    onClick={() => { setDays(opt.days); setPickerOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between gap-2 transition-colors ${
+                      selected
+                        ? "bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300 font-semibold"
+                        : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {selected && <span className="material-symbols-outlined text-[18px]">check</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -109,7 +173,7 @@ export default function DashboardPage() {
           </div>
           <div className="hidden md:flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5 text-sm">
             <span className="material-symbols-outlined text-[18px]">date_range</span>
-            <span className="font-medium">Últimos 90 dias</span>
+            <span className="font-medium">{currentRange.label}</span>
           </div>
         </div>
 

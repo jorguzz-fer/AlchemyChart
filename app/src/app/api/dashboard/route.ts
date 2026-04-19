@@ -2,15 +2,21 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/authz";
 
-export async function GET() {
+const ALLOWED_DAYS = new Set([7, 15, 30, 60, 90, 180]);
+
+export async function GET(req: Request) {
   const { session, error } = await requireAuth();
   if (error) return error;
 
   const tenantId = session.user.tenantId;
+  const url = new URL(req.url);
+  const daysParam = Number(url.searchParams.get("days"));
+  const days = ALLOWED_DAYS.has(daysParam) ? daysParam : 90;
+
   const now = new Date();
   const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const rangeStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
   const [nonConformities, expiringMaterials, inObservation, allStats, equipments] = await Promise.all([
     prisma.nonConformity.count({
@@ -38,7 +44,7 @@ export async function GET() {
     prisma.equipment.findMany({
       where: { unit: { tenantId }, active: true },
       include: {
-        runs: { where: { runAt: { gte: ninetyDaysAgo } }, select: { status: true } },
+        runs: { where: { runAt: { gte: rangeStart } }, select: { status: true } },
         analytes: {
           where: { active: true },
           include: { stats: { orderBy: { createdAt: "desc" }, take: 1 } },
@@ -83,6 +89,7 @@ export async function GET() {
   });
 
   return NextResponse.json({
+    days,
     kpis: { nonConformities, expiringMaterials, highCvCount, inObservation },
     equipments: equipmentStats,
   });
