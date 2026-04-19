@@ -1,16 +1,15 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { checkWestgard } from "@/lib/westgard";
 import { calculateStats } from "@/lib/stats";
 import { NextResponse } from "next/server";
+import { requireRole, ROLES_WRITE } from "@/lib/authz";
+import { logAudit, getClientIp } from "@/lib/audit";
 
 const SETUP_THRESHOLD = 20; // runs needed to establish StatPeriod
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error } = await requireRole(ROLES_WRITE);
+  if (error) return error;
 
   const body = await req.json();
   const { analyteId, value, note } = body;
@@ -83,6 +82,22 @@ export async function POST(req: Request) {
       });
     }
   }
+
+  await logAudit({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "run.create",
+    entity: "Run",
+    entityId: run.id,
+    meta: {
+      analyteId,
+      analyteName: analyte.name,
+      value: numValue,
+      status,
+      violations,
+    },
+    ip: getClientIp(req),
+  });
 
   return NextResponse.json(run, { status: 201 });
 }

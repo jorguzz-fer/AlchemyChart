@@ -1,13 +1,11 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { calculateStats } from "@/lib/stats";
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/authz";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error } = await requireAuth();
+  if (error) return error;
 
   const { id } = await params;
 
