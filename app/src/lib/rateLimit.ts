@@ -17,13 +17,16 @@ export async function rateLimit({ key, windowSec, max }: RateLimitOptions): Prom
   const windowStart = new Date(now.getTime() - windowSec * 1000);
 
   try {
+    // Separar em dois comandos — PostgreSQL não aceita multi-statement em prepared statements
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "RateLimitHit" (
         "id" SERIAL PRIMARY KEY,
         "key" TEXT NOT NULL,
         "hitAt" TIMESTAMP NOT NULL DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS "RateLimitHit_key_hitAt_idx" ON "RateLimitHit"("key", "hitAt");
+      )
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "RateLimitHit_key_hitAt_idx" ON "RateLimitHit"("key", "hitAt")
     `);
 
     await prisma.$executeRawUnsafe(

@@ -25,7 +25,7 @@ export function validatePassword(password: string): PasswordCheck {
   }
   const common = [
     "12345678", "123456789", "1234567890", "password", "senha12345",
-    "qwerty", "qwerty123", "admin", "admin123", "alchemy", "alchemy2026",
+    "qwerty", "qwerty123", "admin", "admin123",
   ];
   if (common.some((c) => password.toLowerCase().includes(c))) {
     return { ok: false, error: "Senha muito comum ou previsível" };
