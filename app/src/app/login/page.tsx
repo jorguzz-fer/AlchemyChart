@@ -177,9 +177,12 @@ export default function LoginPage() {
                   >
                     Senha
                   </label>
-                  <span className="text-xs text-gray-400 font-medium">
-                    Contate o administrador
-                  </span>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs text-primary-500 hover:text-primary-600 font-medium"
+                  >
+                    Esqueci minha senha
+                  </Link>
                 </div>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[20px]">

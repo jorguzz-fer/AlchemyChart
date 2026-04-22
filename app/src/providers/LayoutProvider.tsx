@@ -10,7 +10,7 @@ interface LayoutProviderProps {
   children: ReactNode;
 }
 
-const AUTH_PATHS = ["/", "/login", "/signup", "/forgot-password", "/reset-password", "/privacidade", "/termos"];
+const AUTH_PATHS = ["/", "/login", "/signup", "/forgot-password", "/reset-password", "/privacidade", "/termos", "/api/password-reset"];
 
 const LayoutProvider: React.FC<LayoutProviderProps> = ({ children }) => {
   const pathname = usePathname();
