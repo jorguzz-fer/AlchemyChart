@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,6 +13,20 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  // Read signup success flash from URL (client-only to avoid needing <Suspense>)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("created") === "1") {
+      const createdEmail = params.get("email");
+      if (createdEmail) setEmail(createdEmail);
+      setFlash("Conta criada com sucesso! Faça login para começar.");
+      // Clean the URL without triggering a navigation
+      window.history.replaceState({}, "", "/login");
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,6 +215,13 @@ export default function LoginPage() {
                 />
                 Manter-me conectado
               </label>
+
+              {flash && (
+                <div className="flex items-center gap-2 text-sm text-success-700 bg-success-50 border border-success-200 rounded-lg px-3 py-2">
+                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                  {flash}
+                </div>
+              )}
 
               {error && (
                 <div className="flex items-center gap-2 text-sm text-danger-600 bg-danger-50 border border-danger-200 rounded-lg px-3 py-2">
