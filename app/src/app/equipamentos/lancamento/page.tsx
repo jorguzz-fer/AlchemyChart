@@ -51,6 +51,7 @@ const STATUS_META: Record<RunStatus, { label: string; cls: string }> = {
 };
 
 function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
+  // Chave: nome||unidade → condMap por materialId
   const analyteMap = new Map<string, { group: AnalyteGroup; condMap: Map<string, ConditionGroup> }>();
 
   for (const a of list) {
@@ -75,13 +76,34 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
     }
 
     const cond = condMap.get(a.material.id)!;
+    // Atualiza hasStats: se qualquer nível deste material tem stats, o grupo é Ativo
+    if (a._count.stats > 0) cond.hasStats = true;
     const idx = Math.min(Math.max(a.level, 1), 3) - 1;
     cond.levels[idx] = { analyteId: a.id, level: a.level, value: "", status: "idle", violations: [] };
   }
 
-  // Ativo (hasStats) primeiro dentro de cada analito
+  // Para cada analito, garante sempre 2 condições: Ativo + Preparo
+  // Se só tiver 1 material, duplicamos com a condição oposta (vazia, sem inputs)
   for (const { group } of analyteMap.values()) {
+    // Ativo (hasStats=true) primeiro
     group.conditions.sort((a, b) => Number(b.hasStats) - Number(a.hasStats));
+
+    if (group.conditions.length === 1) {
+      // Adiciona a condição faltante como linha vazia (sem analitos configurados)
+      const existing = group.conditions[0];
+      const placeholder: ConditionGroup = {
+        materialId: `__placeholder_${existing.hasStats ? "preparo" : "ativo"}`,
+        hasStats: !existing.hasStats,
+        levels: [null, null, null],
+      };
+      if (existing.hasStats) {
+        // Ativo existe, adiciona Preparo no final
+        group.conditions.push(placeholder);
+      } else {
+        // Preparo existe, adiciona Ativo no início
+        group.conditions.unshift(placeholder);
+      }
+    }
   }
 
   return Array.from(analyteMap.values())
@@ -215,11 +237,8 @@ function LancamentoInner() {
   );
   const selectedEquip = equipments.find((e) => e.id === selectedEquipId);
 
-  // Detecta quais colunas de nível existem para este equipamento
-  const activeLevels: [boolean, boolean, boolean] = [false, false, false];
-  groups.forEach((g) =>
-    g.conditions.forEach((c) => c.levels.forEach((e, i) => { if (e) activeLevels[i] = true; }))
-  );
+  // Sempre exibe as 3 colunas de nível (células cinzas = não configurado)
+  const activeLevels: [boolean, boolean, boolean] = [true, true, true];
 
   // Contador de inputs data-value-input (para navegação Enter)
   let inputCounter = 0;
@@ -255,14 +274,18 @@ function LancamentoInner() {
       ) : (
         <div className="bg-white dark:bg-[#141414] rounded-2xl border border-gray-100 dark:border-[#1a1a1a] overflow-hidden">
           {/* Card header */}
-          <div className="alchemy-gradient px-6 py-4 text-white flex items-center justify-between">
+          <div className="bg-danger-600 px-6 py-4 text-white flex items-center justify-between">
             <div>
               <h3 className="text-white font-bold text-base mb-0">{selectedEquip?.name ?? "Equipamento"}</h3>
-              <p className="text-white/70 text-xs mb-0">{groups.length} analito(s)</p>
+              <p className="text-white/70 text-xs mb-0">Lançamento de corridas</p>
             </div>
-            {submitted && (
-              <span className="text-xs bg-white/20 rounded-full px-3 py-1">Lançamento concluído</span>
-            )}
+            <div className="flex items-center gap-2">
+              {submitted && (
+                <span className="text-xs bg-white/20 rounded-full px-3 py-1">Lançamento concluído</span>
+              )}
+              <span className="material-symbols-outlined text-white/60 text-[20px]">bar_chart</span>
+              <span className="material-symbols-outlined text-white/60 text-[20px]">grid_view</span>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
