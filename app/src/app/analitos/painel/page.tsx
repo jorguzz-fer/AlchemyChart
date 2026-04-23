@@ -115,7 +115,6 @@ function Toggle({
 // ─── Level header color ────────────────────────────────────────────────────────
 
 const LEVEL_COLORS = ["text-danger-600", "text-primary-600", "text-success-600"];
-const LEVEL_BG = ["bg-danger-50 dark:bg-danger-900/20", "bg-primary-50 dark:bg-primary-900/20", "bg-success-50 dark:bg-success-900/20"];
 
 // ─── Main inner component ─────────────────────────────────────────────────────
 
@@ -152,9 +151,6 @@ function PainelControleInner() {
   const PAGE_SIZE = 10;
   const [page, setPage] = useState(1);
 
-  // Edit mode
-  const [editRunIdx, setEditRunIdx] = useState<number | null>(null);
-  const [editValues, setEditValues] = useState<string[]>(["", "", ""]);
 
   // ── Load all analytes ────────────────────────────────────────────────────────
 
@@ -319,7 +315,6 @@ function PainelControleInner() {
     setSidebarOpen(false);
     setPage(1);
     setNewValues(["", "", ""]);
-    setEditRunIdx(null);
     // Update URL
     router.replace(`/analitos/painel?name=${encodeURIComponent(name)}&eq=${encodeURIComponent(eqId)}`, { scroll: false });
   };
@@ -570,7 +565,7 @@ function PainelControleInner() {
                         <tr>
                           <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 w-10">#</th>
                           <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 w-16">Editar</th>
-                          {analytes.map((a, i) => (
+                          {analytes.map((a) => (
                             <th key={a.id} className="px-3 py-3 text-center text-xs font-semibold min-w-[90px]">
                               <div className="flex items-center justify-center gap-1.5">
                                 <input
@@ -606,7 +601,6 @@ function PainelControleInner() {
                       <tbody>
                         {pageRows.map((row) => {
                           const anyViolation = row.violations.some((v) => v && v.length > 0);
-                          const isEditing = editRunIdx === row.no - 1;
                           return (
                             <tr
                               key={row.no}
@@ -618,10 +612,7 @@ function PainelControleInner() {
                               <td className="px-3 py-2.5">
                                 <div className="flex items-center gap-0.5">
                                   <button
-                                    onClick={() => {
-                                      setEditRunIdx(row.no - 1);
-                                      setEditValues(row.values.map((v) => (v !== null ? String(v) : "")));
-                                    }}
+                                    onClick={() => {}}
                                     className="w-6 h-6 rounded text-gray-400 hover:text-primary-500 hover:bg-primary-50 transition-all flex items-center justify-center"
                                   >
                                     <span className="material-symbols-outlined text-[14px]">edit</span>
