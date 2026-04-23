@@ -12,6 +12,7 @@ export async function GET() {
     include: {
       equipment: { select: { id: true, name: true } },
       material: { select: { id: true, name: true } },
+      _count: { select: { stats: true } },
     },
     orderBy: { name: "asc" },
   });

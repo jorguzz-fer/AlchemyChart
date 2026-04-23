@@ -10,6 +10,8 @@ interface Analyte {
   level: number;
   equipmentId: string;
   active?: boolean;
+  material: { id: string; name: string };
+  _count: { stats: number };
 }
 
 interface Equipment {
@@ -27,49 +29,73 @@ interface LevelEntry {
   violations: string[];
 }
 
-interface AnalyteGroup {
-  name: string;
-  unit: string | null;
-  // index 0 = nível 1, index 1 = nível 2, index 2 = nível 3
+interface ConditionGroup {
+  materialId: string;
+  hasStats: boolean; // true = Ativo, false = Preparo
   levels: [LevelEntry | null, LevelEntry | null, LevelEntry | null];
 }
 
+interface AnalyteGroup {
+  name: string;
+  unit: string | null;
+  conditions: ConditionGroup[]; // Ativo primeiro, depois Preparo
+}
+
 const STATUS_META: Record<RunStatus, { label: string; cls: string }> = {
-  idle:    { label: "",          cls: "" },
-  saving:  { label: "Salvando…", cls: "text-gray-400 animate-pulse" },
-  ok:      { label: "OK",        cls: "text-success-600 font-bold" },
-  alert:   { label: "ALERTA",    cls: "text-warning-600 font-bold" },
-  reject:  { label: "REJEITAR",  cls: "text-danger-600 font-bold" },
-  error:   { label: "ERRO",      cls: "text-danger-500" },
+  idle:   { label: "",          cls: "" },
+  saving: { label: "Salvando…", cls: "text-gray-400 animate-pulse" },
+  ok:     { label: "OK",        cls: "text-success-600 font-bold" },
+  alert:  { label: "ALERTA",    cls: "text-warning-600 font-bold" },
+  reject: { label: "REJEITAR",  cls: "text-danger-600 font-bold" },
+  error:  { label: "ERRO",      cls: "text-danger-500" },
 };
 
 function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
-  const map = new Map<string, AnalyteGroup>();
+  const analyteMap = new Map<string, { group: AnalyteGroup; condMap: Map<string, ConditionGroup> }>();
+
   for (const a of list) {
     if (a.active === false) continue;
-    const key = `${a.name}||${a.unit ?? ""}`;
-    if (!map.has(key)) {
-      map.set(key, { name: a.name, unit: a.unit, levels: [null, null, null] });
+    const analyteKey = `${a.name}||${a.unit ?? ""}`;
+
+    if (!analyteMap.has(analyteKey)) {
+      const group: AnalyteGroup = { name: a.name, unit: a.unit, conditions: [] };
+      analyteMap.set(analyteKey, { group, condMap: new Map() });
     }
+
+    const { group, condMap } = analyteMap.get(analyteKey)!;
+
+    if (!condMap.has(a.material.id)) {
+      const cond: ConditionGroup = {
+        materialId: a.material.id,
+        hasStats: a._count.stats > 0,
+        levels: [null, null, null],
+      };
+      condMap.set(a.material.id, cond);
+      group.conditions.push(cond);
+    }
+
+    const cond = condMap.get(a.material.id)!;
     const idx = Math.min(Math.max(a.level, 1), 3) - 1;
-    map.get(key)!.levels[idx] = {
-      analyteId: a.id,
-      level: a.level,
-      value: "",
-      status: "idle",
-      violations: [],
-    };
+    cond.levels[idx] = { analyteId: a.id, level: a.level, value: "", status: "idle", violations: [] };
   }
-  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+  // Ativo (hasStats) primeiro dentro de cada analito
+  for (const { group } of analyteMap.values()) {
+    group.conditions.sort((a, b) => Number(b.hasStats) - Number(a.hasStats));
+  }
+
+  return Array.from(analyteMap.values())
+    .map(({ group }) => group)
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
 
 function LancamentoInner() {
   const searchParams = useSearchParams();
-  const [equipments, setEquipments]       = useState<Equipment[]>([]);
+  const [equipments, setEquipments]     = useState<Equipment[]>([]);
   const [selectedEquipId, setSelectedEquipId] = useState<string>("");
-  const [groups, setGroups]               = useState<AnalyteGroup[]>([]);
-  const [submitting, setSubmitting]       = useState(false);
-  const [submitted, setSubmitted]         = useState(false);
+  const [groups, setGroups]             = useState<AnalyteGroup[]>([]);
+  const [submitting, setSubmitting]     = useState(false);
+  const [submitted, setSubmitted]       = useState(false);
 
   useEffect(() => {
     fetch("/api/equipamentos")
@@ -98,40 +124,50 @@ function LancamentoInner() {
 
   useEffect(() => { loadAnalytes(selectedEquipId); }, [selectedEquipId, loadAnalytes]);
 
-  const updateLevel = (groupIdx: number, levelIdx: number, value: string) => {
+  const updateLevel = (gi: number, ci: number, li: number, value: string) => {
     setGroups((prev) =>
-      prev.map((g, gi) => {
-        if (gi !== groupIdx) return g;
-        const levels = [...g.levels] as AnalyteGroup["levels"];
-        const entry = levels[levelIdx];
-        if (!entry) return g;
-        levels[levelIdx] = { ...entry, value, status: "idle", violations: [] };
-        return { ...g, levels };
+      prev.map((g, gIdx) => {
+        if (gIdx !== gi) return g;
+        return {
+          ...g,
+          conditions: g.conditions.map((c, cIdx) => {
+            if (cIdx !== ci) return c;
+            const levels = [...c.levels] as ConditionGroup["levels"];
+            const entry = levels[li];
+            if (!entry) return c;
+            levels[li] = { ...entry, value, status: "idle", violations: [] };
+            return { ...c, levels };
+          }),
+        };
       })
     );
   };
 
   const handleSubmit = async () => {
-    // Coleta todas as entradas com valor preenchido
-    const toSave: { groupIdx: number; levelIdx: number; entry: LevelEntry }[] = [];
+    type SaveItem = { gi: number; ci: number; li: number; entry: LevelEntry };
+    const toSave: SaveItem[] = [];
     groups.forEach((g, gi) =>
-      g.levels.forEach((e, li) => {
-        if (e && e.value.trim() !== "") toSave.push({ groupIdx: gi, levelIdx: li, entry: e });
-      })
+      g.conditions.forEach((c, ci) =>
+        c.levels.forEach((e, li) => {
+          if (e && e.value.trim() !== "") toSave.push({ gi, ci, li, entry: e });
+        })
+      )
     );
     if (toSave.length === 0) return;
 
     setSubmitting(true);
 
-    // Marca todos como "saving"
+    // Marca "saving"
     setGroups((prev) =>
-      prev.map((g, gi) => {
-        const levels = [...g.levels] as AnalyteGroup["levels"];
-        levels.forEach((e, li) => {
-          if (e && e.value.trim() !== "") levels[li] = { ...e!, status: "saving" };
-        });
-        return { ...g, levels };
-      })
+      prev.map((g) => ({
+        ...g,
+        conditions: g.conditions.map((c) => ({
+          ...c,
+          levels: c.levels.map((e) =>
+            e && e.value.trim() !== "" ? { ...e, status: "saving" as RunStatus } : e
+          ) as ConditionGroup["levels"],
+        })),
+      }))
     );
 
     const results = await Promise.allSettled(
@@ -150,21 +186,21 @@ function LancamentoInner() {
     setGroups((prev) => {
       const next = prev.map((g) => ({
         ...g,
-        levels: [...g.levels] as AnalyteGroup["levels"],
+        conditions: g.conditions.map((c) => ({ ...c, levels: [...c.levels] as ConditionGroup["levels"] })),
       }));
-      toSave.forEach(({ groupIdx, levelIdx }, i) => {
+      toSave.forEach(({ gi, ci, li }, i) => {
         const result = results[i];
-        const entry = next[groupIdx].levels[levelIdx];
+        const entry = next[gi].conditions[ci].levels[li];
         if (!entry) return;
         if (result.status === "fulfilled") {
           const run = result.value;
-          next[groupIdx].levels[levelIdx] = {
+          next[gi].conditions[ci].levels[li] = {
             ...entry,
             status: (run.status?.toLowerCase() as RunStatus) ?? "ok",
             violations: run.violations ?? [],
           };
         } else {
-          next[groupIdx].levels[levelIdx] = { ...entry, status: "error", violations: [] };
+          next[gi].conditions[ci].levels[li] = { ...entry, status: "error", violations: [] };
         }
       });
       return next;
@@ -174,12 +210,19 @@ function LancamentoInner() {
     setSubmitted(true);
   };
 
-  const hasValues = groups.some((g) => g.levels.some((e) => e && e.value.trim() !== ""));
+  const hasValues = groups.some((g) =>
+    g.conditions.some((c) => c.levels.some((e) => e && e.value.trim() !== ""))
+  );
   const selectedEquip = equipments.find((e) => e.id === selectedEquipId);
 
-  // Descobre quais colunas de nível existem no equipamento atual
+  // Detecta quais colunas de nível existem para este equipamento
   const activeLevels: [boolean, boolean, boolean] = [false, false, false];
-  groups.forEach((g) => g.levels.forEach((e, i) => { if (e) activeLevels[i] = true; }));
+  groups.forEach((g) =>
+    g.conditions.forEach((c) => c.levels.forEach((e, i) => { if (e) activeLevels[i] = true; }))
+  );
+
+  // Contador de inputs data-value-input (para navegação Enter)
+  let inputCounter = 0;
 
   return (
     <div className="space-y-6">
@@ -223,11 +266,14 @@ function LancamentoInner() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full border-collapse">
               <thead className="bg-gray-50 dark:bg-[#0c0b0b]">
                 <tr>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-44">
+                    Analitos
+                  </th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Analito
+                    Condição do controle
                   </th>
                   {([1, 2, 3] as const).map((n, i) =>
                     activeLevels[i] ? (
@@ -239,75 +285,102 @@ function LancamentoInner() {
                 </tr>
               </thead>
               <tbody>
-                {groups.map((group, gi) => {
-                  return (
-                    <tr
-                      key={`${group.name}||${group.unit}`}
-                      className="border-t border-gray-100 dark:border-[#1a1a1a] hover:bg-gray-50/50 dark:hover:bg-[#1a1a1a]/40 transition-colors"
-                    >
-                      {/* Analito name */}
-                      <td className="px-5 py-3">
-                        <span className="text-sm font-medium text-black dark:text-white">{group.name}</span>
-                        {group.unit && <span className="ml-1 text-xs text-gray-400">({group.unit})</span>}
-                      </td>
-
-                      {/* Colunas de nível */}
-                      {([0, 1, 2] as const).map((li) => {
-                        if (!activeLevels[li]) return null;
-                        const entry = group.levels[li];
-
-                        if (!entry) {
-                          // Nível não configurado para este analito
-                          return (
-                            <td key={li} className="px-3 py-3">
-                              <div className="w-full h-9 rounded-lg bg-gray-100 dark:bg-[#1a1a1a]" />
-                            </td>
-                          );
-                        }
-
-                        const st = STATUS_META[entry.status];
-                        return (
-                          <td key={li} className="px-3 py-3">
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="0.00"
-                              value={entry.value}
-                              onChange={(e) => updateLevel(gi, li, e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  const inputs = document.querySelectorAll<HTMLInputElement>("[data-value-input]");
-                                  const all = Array.from(inputs);
-                                  const cur = e.currentTarget;
-                                  const curIdx = all.indexOf(cur);
-                                  if (curIdx >= 0 && all[curIdx + 1]) all[curIdx + 1].focus();
-                                }
-                              }}
-                              data-value-input
-                              className={`w-full px-3 py-1.5 rounded-lg border text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-colors ${
-                                entry.status === "ok"
-                                  ? "border-success-300 bg-success-50/50 dark:bg-success-900/10"
-                                  : entry.status === "alert"
-                                  ? "border-warning-300 bg-warning-50/50 dark:bg-warning-900/10"
-                                  : entry.status === "reject"
-                                  ? "border-danger-300 bg-danger-50/50 dark:bg-danger-900/10"
-                                  : "border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#0c0b0b]"
-                              }`}
-                            />
-                            {entry.status !== "idle" && (
-                              <div className="mt-1 text-center">
-                                <span className={`text-[10px] ${st.cls}`}>{st.label}</span>
-                                {entry.violations.length > 0 && (
-                                  <span className="text-[9px] text-gray-400 ml-1">{entry.violations.join(" ")}</span>
-                                )}
-                              </div>
+                {groups.map((group, gi) =>
+                  group.conditions.map((cond, ci) => {
+                    const isFirstCond = ci === 0;
+                    const isAtivo = cond.hasStats;
+                    return (
+                      <tr
+                        key={`${group.name}||${cond.materialId}`}
+                        className={`border-t border-gray-100 dark:border-[#1a1a1a] hover:bg-gray-50/50 dark:hover:bg-[#1a1a1a]/40 transition-colors ${
+                          !isFirstCond ? "border-t border-dashed border-gray-100 dark:border-[#1a1a1a]" : ""
+                        }`}
+                      >
+                        {/* Analito name — só na primeira linha (rowspan) */}
+                        {isFirstCond && (
+                          <td
+                            rowSpan={group.conditions.length}
+                            className="px-5 py-3 align-middle border-r border-gray-100 dark:border-[#1a1a1a]"
+                          >
+                            <span className="text-sm font-semibold text-black dark:text-white">{group.name}</span>
+                            {group.unit && (
+                              <span className="block text-xs text-gray-400 mt-0.5">{group.unit}</span>
                             )}
                           </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
+                        )}
+
+                        {/* Condição do controle */}
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-medium ${isAtivo ? "text-gray-700 dark:text-gray-200" : "text-gray-500 dark:text-gray-400"}`}>
+                              {isAtivo ? "Ativo" : "Preparo"}
+                            </span>
+                            <div className="flex items-center gap-1 text-gray-400">
+                              {isAtivo && (
+                                <span className="material-symbols-outlined text-[16px] text-success-500" title="Possui estatísticas">trending_up</span>
+                              )}
+                              <span className="material-symbols-outlined text-[16px]" title="Ver histórico">format_list_bulleted</span>
+                              <span className="material-symbols-outlined text-[16px]" title="Informações">info</span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Colunas de nível */}
+                        {([0, 1, 2] as const).map((li) => {
+                          if (!activeLevels[li]) return null;
+                          const entry = cond.levels[li];
+
+                          if (!entry) {
+                            return (
+                              <td key={li} className="px-3 py-3">
+                                <div className="w-full h-9 rounded-lg bg-gray-100 dark:bg-[#1a1a1a]" />
+                              </td>
+                            );
+                          }
+
+                          const st = STATUS_META[entry.status];
+                          const myIdx = inputCounter++;
+                          return (
+                            <td key={li} className="px-3 py-3">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0.00"
+                                value={entry.value}
+                                onChange={(e) => updateLevel(gi, ci, li, e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    const inputs = document.querySelectorAll<HTMLInputElement>("[data-value-input]");
+                                    const next = inputs[myIdx + 1];
+                                    if (next) next.focus();
+                                  }
+                                }}
+                                data-value-input
+                                className={`w-full px-3 py-1.5 rounded-lg border text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-colors ${
+                                  entry.status === "ok"
+                                    ? "border-success-300 bg-success-50/50 dark:bg-success-900/10"
+                                    : entry.status === "alert"
+                                    ? "border-warning-300 bg-warning-50/50 dark:bg-warning-900/10"
+                                    : entry.status === "reject"
+                                    ? "border-danger-300 bg-danger-50/50 dark:bg-danger-900/10"
+                                    : "border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#0c0b0b]"
+                                }`}
+                              />
+                              {entry.status !== "idle" && (
+                                <div className="mt-1 text-center">
+                                  <span className={`text-[10px] ${st.cls}`}>{st.label}</span>
+                                  {entry.violations.length > 0 && (
+                                    <span className="text-[9px] text-gray-400 ml-1">{entry.violations.join(" ")}</span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
