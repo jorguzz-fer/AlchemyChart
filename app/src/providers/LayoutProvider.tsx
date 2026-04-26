@@ -2,6 +2,7 @@
 
 import React, { useState, ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { SessionProvider } from "next-auth/react";
 import SidebarMenu from "@/components/Layout/SidebarMenu";
 import Header from "@/components/Layout/Header";
 import Footer from "@/components/Layout/Footer";
@@ -20,19 +21,21 @@ const LayoutProvider: React.FC<LayoutProviderProps> = ({ children }) => {
 
   const isAuthPage = AUTH_PATHS.includes(pathname);
 
-  if (isAuthPage) {
-    return <div className="min-h-screen">{children}</div>;
-  }
-
   return (
-    <div className={`main-content-wrap transition-all ${active ? "active" : ""}`}>
-      <SidebarMenu toggleActive={toggleActive} />
-      <Header toggleActive={toggleActive} />
-      <div className="main-content transition-all flex flex-col overflow-hidden min-h-screen">
-        {children}
-        <Footer />
-      </div>
-    </div>
+    <SessionProvider>
+      {isAuthPage ? (
+        <div className="min-h-screen">{children}</div>
+      ) : (
+        <div className={`main-content-wrap transition-all ${active ? "active" : ""}`}>
+          <SidebarMenu toggleActive={toggleActive} />
+          <Header toggleActive={toggleActive} />
+          <div className="main-content transition-all flex flex-col overflow-hidden min-h-screen">
+            {children}
+            <Footer />
+          </div>
+        </div>
+      )}
+    </SessionProvider>
   );
 };
 
