@@ -9,7 +9,9 @@ export async function GET() {
 
   const items = await prisma.material.findMany({
     where: { unit: { tenantId: session.user.tenantId } },
-    include: { _count: { select: { analytes: true } } },
+    include: {
+      _count: { select: { analytes: true, analyteMaterials: true } },
+    },
     orderBy: { name: "asc" },
   });
 
@@ -22,7 +24,17 @@ export async function POST(req: Request) {
   if (!session.user.unitId) return NextResponse.json({ error: "No unit" }, { status: 400 });
 
   const body = await req.json();
-  const { name, lot, generation, expiresAt } = body;
+  const {
+    name,
+    lot,
+    generation,
+    expiresAt,
+    // Novos campos da Fase 1
+    fabricante,
+    alertEnabled,
+    alertDays,
+    naoEnsaiado,
+  } = body;
 
   if (!name?.trim()) return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
 
@@ -33,6 +45,10 @@ export async function POST(req: Request) {
       lot: lot?.trim() || null,
       generation: generation?.trim() || null,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
+      fabricante: fabricante?.trim() || null,
+      alertEnabled: alertEnabled !== undefined ? Boolean(alertEnabled) : true,
+      alertDays: alertDays !== undefined ? Math.max(0, Number(alertDays) || 0) : 5,
+      naoEnsaiado: naoEnsaiado !== undefined ? Boolean(naoEnsaiado) : false,
     },
   });
 
@@ -42,7 +58,7 @@ export async function POST(req: Request) {
     action: "material.create",
     entity: "Material",
     entityId: item.id,
-    meta: { name: item.name, lot: item.lot, generation: item.generation },
+    meta: { name: item.name, lot: item.lot, fabricante: item.fabricante },
     ip: getClientIp(req),
   });
 

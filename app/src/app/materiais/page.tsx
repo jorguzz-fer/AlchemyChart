@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 
 interface Material {
@@ -9,6 +10,8 @@ interface Material {
   generation: string | null;
   expiresAt: string | null;
   active: boolean;
+  fabricante: string | null;
+  _count: { analyteMaterials: number };
 }
 
 interface FormState {
@@ -60,18 +63,6 @@ export default function MateriaisPage() {
   const openCreate = () => {
     setEditItem(null);
     setForm(EMPTY_FORM);
-    setError(null);
-    setShowModal(true);
-  };
-
-  const openEdit = (item: Material) => {
-    setEditItem(item);
-    setForm({
-      name: item.name,
-      lot: item.lot ?? "",
-      generation: item.generation ?? "",
-      expiresAt: item.expiresAt ? item.expiresAt.slice(0, 10) : "",
-    });
     setError(null);
     setShowModal(true);
   };
@@ -239,13 +230,13 @@ export default function MateriaisPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => openEdit(item)}
+                          <Link
+                            href={`/materiais/${item.id}`}
                             title="Editar"
                             className="w-8 h-8 rounded-lg text-gray-500 hover:bg-primary-50 hover:text-primary-500 transition-all flex items-center justify-center"
                           >
                             <span className="material-symbols-outlined text-[18px]">edit</span>
-                          </button>
+                          </Link>
                           <button
                             onClick={() => handleToggleActive(item)}
                             title={item.active ? "Desativar" : "Ativar"}
