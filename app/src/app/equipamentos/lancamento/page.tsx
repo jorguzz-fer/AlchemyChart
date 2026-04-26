@@ -2,6 +2,17 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+
+interface AnalyteMaterialDTO {
+  id: string;
+  level: number;
+  manufacturerMean: number | null;
+  manufacturerSD: number | null;
+  status: string;
+  material: { id: string; name: string; lot: string | null };
+  equipment: { id: string; name: string };
+}
 
 interface Analyte {
   id: string;
@@ -10,8 +21,9 @@ interface Analyte {
   level: number;
   equipmentId: string;
   active?: boolean;
-  material: { id: string; name: string };
+  material: { id: string; name: string; lot?: string | null };
   _count: { stats: number };
+  analyteMaterials: AnalyteMaterialDTO[];
 }
 
 interface Equipment {
@@ -27,6 +39,11 @@ interface LevelEntry {
   value: string;
   status: RunStatus;
   violations: string[];
+  // Bula (do AnalyteMaterial)
+  materialName: string;
+  materialLot: string | null;
+  manufacturerMean: number | null;
+  manufacturerSD: number | null;
 }
 
 interface ConditionGroup {
@@ -76,20 +93,30 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
     }
 
     const cond = condMap.get(a.material.id)!;
-    // Atualiza hasStats: se qualquer nível deste material tem stats, o grupo é Ativo
     if (a._count.stats > 0) cond.hasStats = true;
+
+    // Pega os dados de bula do AnalyteMaterial (durante transição: 1:1 com Analyte)
+    const am = a.analyteMaterials?.[0];
+
     const idx = Math.min(Math.max(a.level, 1), 3) - 1;
-    cond.levels[idx] = { analyteId: a.id, level: a.level, value: "", status: "idle", violations: [] };
+    cond.levels[idx] = {
+      analyteId: a.id,
+      level: a.level,
+      value: "",
+      status: "idle",
+      violations: [],
+      materialName: a.material.name,
+      materialLot: a.material.lot ?? null,
+      manufacturerMean: am?.manufacturerMean ?? null,
+      manufacturerSD: am?.manufacturerSD ?? null,
+    };
   }
 
   // Para cada analito, garante sempre 2 condições: Ativo + Preparo
-  // Se só tiver 1 material, duplicamos com a condição oposta (vazia, sem inputs)
   for (const { group } of analyteMap.values()) {
-    // Ativo (hasStats=true) primeiro
     group.conditions.sort((a, b) => Number(b.hasStats) - Number(a.hasStats));
 
     if (group.conditions.length === 1) {
-      // Adiciona a condição faltante como linha vazia (sem analitos configurados)
       const existing = group.conditions[0];
       const placeholder: ConditionGroup = {
         materialId: `__placeholder_${existing.hasStats ? "preparo" : "ativo"}`,
@@ -97,10 +124,8 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
         levels: [null, null, null],
       };
       if (existing.hasStats) {
-        // Ativo existe, adiciona Preparo no final
         group.conditions.push(placeholder);
       } else {
-        // Preparo existe, adiciona Ativo no início
         group.conditions.unshift(placeholder);
       }
     }
@@ -111,13 +136,59 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
 
+// Tooltip com informações de bula da condição (todos os níveis)
+function BulaTooltip({ cond, equipmentName }: { cond: ConditionGroup; equipmentName: string }) {
+  const levelsWithData = cond.levels
+    .map((l, i) => ({ entry: l, level: i + 1 }))
+    .filter((x) => x.entry !== null) as Array<{ entry: LevelEntry; level: number }>;
+
+  if (levelsWithData.length === 0) {
+    return (
+      <div className="text-xs text-white/70">
+        Nenhum nível configurado para esta condição.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 text-xs">
+      <div className="font-semibold text-white/90 border-b border-white/20 pb-1 mb-1">
+        {equipmentName} — {cond.hasStats ? "Ativo" : "Preparo"}
+      </div>
+      {levelsWithData.map(({ entry, level }) => (
+        <div key={level} className="space-y-0.5">
+          <div className="font-semibold">
+            Nível {level}: <span className="font-normal">{entry.materialName}</span>
+          </div>
+          {entry.materialLot && (
+            <div className="text-white/70">Lote: {entry.materialLot}</div>
+          )}
+          {entry.manufacturerMean !== null && entry.manufacturerSD !== null && (
+            <div className="text-white/80 font-mono">
+              Xm: {entry.manufacturerMean.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}
+              {" — "}
+              DP: {entry.manufacturerSD.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}
+            </div>
+          )}
+          {entry.manufacturerMean === null && entry.manufacturerSD === null && (
+            <div className="text-white/50 italic">Sem valores de bula</div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function LancamentoInner() {
   const searchParams = useSearchParams();
-  const [equipments, setEquipments]     = useState<Equipment[]>([]);
+  const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [selectedEquipId, setSelectedEquipId] = useState<string>("");
-  const [groups, setGroups]             = useState<AnalyteGroup[]>([]);
-  const [submitting, setSubmitting]     = useState(false);
-  const [submitted, setSubmitted]       = useState(false);
+  const [groups, setGroups] = useState<AnalyteGroup[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // Tooltip popover state — qual condição está aberta (formato "gi-ci")
+  const [openTooltip, setOpenTooltip] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/equipamentos")
@@ -145,6 +216,17 @@ function LancamentoInner() {
   }, []);
 
   useEffect(() => { loadAnalytes(selectedEquipId); }, [selectedEquipId, loadAnalytes]);
+
+  // Fecha tooltip ao clicar fora
+  useEffect(() => {
+    if (!openTooltip) return;
+    const onClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-tooltip-anchor]")) setOpenTooltip(null);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [openTooltip]);
 
   const updateLevel = (gi: number, ci: number, li: number, value: string) => {
     setGroups((prev) =>
@@ -179,7 +261,6 @@ function LancamentoInner() {
 
     setSubmitting(true);
 
-    // Marca "saving"
     setGroups((prev) =>
       prev.map((g) => ({
         ...g,
@@ -232,6 +313,19 @@ function LancamentoInner() {
     setSubmitted(true);
   };
 
+  const handleClear = () => {
+    setGroups((prev) =>
+      prev.map((g) => ({
+        ...g,
+        conditions: g.conditions.map((c) => ({
+          ...c,
+          levels: c.levels.map((e) => (e ? { ...e, value: "", status: "idle" as RunStatus, violations: [] } : e)) as ConditionGroup["levels"],
+        })),
+      }))
+    );
+    setSubmitted(false);
+  };
+
   const hasValues = groups.some((g) =>
     g.conditions.some((c) => c.levels.some((e) => e && e.value.trim() !== ""))
   );
@@ -240,7 +334,6 @@ function LancamentoInner() {
   // Sempre exibe as 3 colunas de nível (células cinzas = não configurado)
   const activeLevels: [boolean, boolean, boolean] = [true, true, true];
 
-  // Contador de inputs data-value-input (para navegação Enter)
   let inputCounter = 0;
 
   return (
@@ -283,8 +376,6 @@ function LancamentoInner() {
               {submitted && (
                 <span className="text-xs bg-white/20 rounded-full px-3 py-1">Lançamento concluído</span>
               )}
-              <span className="material-symbols-outlined text-white/60 text-[20px]">bar_chart</span>
-              <span className="material-symbols-outlined text-white/60 text-[20px]">grid_view</span>
             </div>
           </div>
 
@@ -312,6 +403,9 @@ function LancamentoInner() {
                   group.conditions.map((cond, ci) => {
                     const isFirstCond = ci === 0;
                     const isAtivo = cond.hasStats;
+                    const tooltipKey = `${gi}-${ci}`;
+                    const isOpen = openTooltip === tooltipKey;
+                    const equipName = selectedEquip?.name ?? "";
                     return (
                       <tr
                         key={`${group.name}||${cond.materialId}`}
@@ -332,18 +426,61 @@ function LancamentoInner() {
                           </td>
                         )}
 
-                        {/* Condição do controle */}
+                        {/* Condição do controle + ícones de ação */}
                         <td className="px-5 py-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
                             <span className={`text-sm font-medium ${isAtivo ? "text-gray-700 dark:text-gray-200" : "text-gray-500 dark:text-gray-400"}`}>
                               {isAtivo ? "Ativo" : "Preparo"}
                             </span>
-                            <div className="flex items-center gap-1 text-gray-400">
-                              {isAtivo && (
-                                <span className="material-symbols-outlined text-[16px] text-success-500" title="Possui estatísticas">trending_up</span>
+
+                            <div className="flex items-center gap-1.5">
+                              {/* 📊 Gráfico evolutivo do CV mensal — só quando Ativo */}
+                              {isAtivo ? (
+                                <Link
+                                  href={`/analitos/cv-mensal?name=${encodeURIComponent(group.name)}&eq=${selectedEquipId}`}
+                                  title="Gráfico evolutivo do CV mensal"
+                                  className="w-7 h-7 rounded-md text-gray-400 hover:text-primary-500 hover:bg-primary-50 transition-all flex items-center justify-center"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">trending_up</span>
+                                </Link>
+                              ) : (
+                                <span
+                                  title="Disponível somente após estabelecer estatísticas"
+                                  className="w-7 h-7 rounded-md text-gray-200 dark:text-gray-700 flex items-center justify-center cursor-not-allowed"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">trending_up</span>
+                                </span>
                               )}
-                              <span className="material-symbols-outlined text-[16px]" title="Ver histórico">format_list_bulleted</span>
-                              <span className="material-symbols-outlined text-[16px]" title="Informações">info</span>
+
+                              {/* 📋 Visualizar painel de controle */}
+                              <Link
+                                href={`/analitos/painel?name=${encodeURIComponent(group.name)}&eq=${selectedEquipId}`}
+                                title="Visualizar painel de controle"
+                                className="w-7 h-7 rounded-md text-gray-400 hover:text-primary-500 hover:bg-primary-50 transition-all flex items-center justify-center"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">format_list_bulleted</span>
+                              </Link>
+
+                              {/* ℹ️ Info — tooltip com bula */}
+                              <div className="relative" data-tooltip-anchor>
+                                <button
+                                  onClick={() => setOpenTooltip(isOpen ? null : tooltipKey)}
+                                  title="Informações do material"
+                                  className={`w-7 h-7 rounded-md transition-all flex items-center justify-center ${
+                                    isOpen
+                                      ? "bg-gray-800 text-white"
+                                      : "text-gray-400 hover:text-primary-500 hover:bg-primary-50"
+                                  }`}
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">info</span>
+                                </button>
+
+                                {isOpen && (
+                                  <div className="absolute left-0 top-full mt-2 z-30 w-80 max-w-[90vw] bg-gray-900 text-white rounded-lg shadow-2xl p-3 border border-gray-700">
+                                    <BulaTooltip cond={cond} equipmentName={equipName} />
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -413,21 +550,21 @@ function LancamentoInner() {
             <p className="text-xs text-gray-400">
               Use{" "}
               <kbd className="px-1.5 py-0.5 rounded border border-gray-200 dark:border-[#2a2a2a] text-[10px]">Enter</kbd>{" "}
-              para avançar entre os campos de valor.
+              para avançar entre os campos.
             </p>
             <div className="flex items-center gap-3">
-              {submitted && (
-                <button
-                  onClick={() => loadAnalytes(selectedEquipId)}
-                  className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-[#1a1a1a] rounded-lg hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-all"
-                >
-                  Novo lançamento
-                </button>
-              )}
+              <button
+                onClick={handleClear}
+                disabled={submitting || !hasValues}
+                className="px-5 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-[#1a1a1a] rounded-lg hover:bg-gray-100 dark:hover:bg-[#1a1a1a] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-[18px]">clear_all</span>
+                LIMPAR
+              </button>
               <button
                 onClick={handleSubmit}
                 disabled={submitting || !hasValues}
-                className="alchemy-gradient text-white px-6 py-2 rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="bg-success-600 hover:bg-success-700 text-white px-6 py-2 rounded-lg text-sm font-semibold shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {submitting ? (
                   <>
@@ -436,8 +573,8 @@ function LancamentoInner() {
                   </>
                 ) : (
                   <>
-                    <span className="material-symbols-outlined text-[18px]">send</span>
-                    Lançar corridas
+                    <span className="material-symbols-outlined text-[18px]">save</span>
+                    SALVAR
                   </>
                 )}
               </button>
