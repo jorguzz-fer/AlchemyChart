@@ -104,61 +104,99 @@ model User {
 // ─── CQI Core ─────────────────────────────────────────────────────────────────
 
 model Equipment {
-  id          String   @id @default(cuid())
-  unitId      String
-  name        String
-  model       String?
-  serial      String?
-  active      Boolean  @default(true)
-  lastMaint   DateTime?
-  nextMaint   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String    @id @default(cuid())
+  unitId    String
+  name      String
+  model     String?
+  serial    String?
+  active    Boolean   @default(true)
+  lastMaint DateTime?
+  nextMaint DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  unit     Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  analytes Analyte[]
-  runs     Run[]
+  unit             Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  analytes         Analyte[]
+  runs             Run[]
+  analyteMaterials AnalyteMaterial[]
 }
 
 model Material {
-  id         String      @id @default(cuid())
-  unitId     String
-  name       String
-  lot        String?
-  generation String?
-  expiresAt  DateTime?
-  active     Boolean     @default(true)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id           String    @id @default(cuid())
+  unitId       String
+  name         String
+  lot          String?
+  generation   String?
+  expiresAt    DateTime?
+  active       Boolean   @default(true)
+  // Novos campos (Fase 1)
+  fabricante   String?
+  alertEnabled Boolean   @default(true)
+  alertDays    Int       @default(5)
+  naoEnsaiado  Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  unit     Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  analytes Analyte[]
+  unit             Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  analytes         Analyte[]
+  analyteMaterials AnalyteMaterial[]
 }
 
 model Analyte {
-  id          String   @id @default(cuid())
-  unitId      String
-  equipmentId String
-  materialId  String
-  name        String
-  unit        String?
-  level       Int      @default(1)  // 1=normal, 2=patológico, 3=intermediário
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String   @id @default(cuid())
+  unitId            String
+  equipmentId       String // legacy — mantido na Fase 1, será deprecado quando deduplica
+  materialId        String // legacy — idem
+  name              String
+  unit              String?
+  level             Int      @default(1) // legacy — 1=normal, 2=patológico, 3=intermediário
+  active            Boolean  @default(true)
+  // Novos campos (Fase 1)
+  decimalPlaces     Int      @default(3)
+  maxImprecision    Float?
+  imprecisionSource String?
+  westgardRules     Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  unitRel   Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unitRel          Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  equipment        Equipment         @relation(fields: [equipmentId], references: [id])
+  material         Material          @relation(fields: [materialId], references: [id])
+  stats            StatPeriod[]
+  runs             Run[]
+  analyteMaterials AnalyteMaterial[]
+}
+
+// Junction Analyte × Equipment × Material × Level com valores de bula (Xm/DP)
+// Fase 1: criada para cada Analyte legado durante backfill (1 AnalyteMaterial por Analyte)
+// Próximas fases: vira a fonte canônica de associações; Run.analyteId será removido
+model AnalyteMaterial {
+  id               String   @id @default(cuid())
+  analyteId        String
+  equipmentId      String
+  materialId       String
+  level            Int // 1, 2, 3
+  manufacturerMean Float? // Xm da bula
+  manufacturerSD   Float? // DP da bula
+  status           String   @default("PREPARO") // PRONTO | PREPARO | EXPIRADO | DESABILITADO
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  analyte   Analyte   @relation(fields: [analyteId], references: [id], onDelete: Cascade)
   equipment Equipment @relation(fields: [equipmentId], references: [id])
   material  Material  @relation(fields: [materialId], references: [id])
-  stats     StatPeriod[]
   runs      Run[]
+
+  @@unique([analyteId, equipmentId, materialId, level])
+  @@index([equipmentId])
+  @@index([materialId])
 }
 
 // Estatísticas de um período (média/DP calculados para um conjunto de corridas)
 model StatPeriod {
   id        String   @id @default(cuid())
   analyteId String
-  period    String   // ex: "2026-Q1", "2026-01", "USO"
+  period    String // ex: "2026-Q1", "2026-01", "USO"
   mean      Float
   sd        Float
   cv        Float
@@ -169,32 +207,36 @@ model StatPeriod {
 }
 
 model Run {
-  id          String      @id @default(cuid())
-  analyteId   String
-  equipmentId String
-  userId      String
-  value       Float
-  runAt       DateTime    @default(now())
-  status      RunStatus   @default(OK)
-  violations  String[]    // ex: ["1:3s", "2:2s"]
-  note        String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id                String    @id @default(cuid())
+  analyteId         String // legacy — mantido até deduplicação concluída
+  analyteMaterialId String? // novo — opcional na Fase 1, obrigatório depois
+  equipmentId       String
+  userId            String
+  value             Float
+  runAt             DateTime  @default(now())
+  status            RunStatus @default(OK)
+  violations        String[] // ex: ["1:3s", "2:2s"]
+  note              String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  analyte   Analyte   @relation(fields: [analyteId], references: [id], onDelete: Cascade)
-  equipment Equipment @relation(fields: [equipmentId], references: [id])
-  user      User      @relation(fields: [userId], references: [id])
+  analyte         Analyte          @relation(fields: [analyteId], references: [id], onDelete: Cascade)
+  analyteMaterial AnalyteMaterial? @relation(fields: [analyteMaterialId], references: [id])
+  equipment       Equipment        @relation(fields: [equipmentId], references: [id])
+  user            User             @relation(fields: [userId], references: [id])
   nonConformities NonConformity[]
+
+  @@index([analyteMaterialId])
 }
 
 model NonConformity {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   runId       String
   description String
   action      String?
   resolvedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
 }
@@ -224,15 +266,15 @@ enum Plan {
 }
 
 enum Role {
-  SUPERADMIN   // Alchemy staff
-  ADMIN        // Gestor do laboratório
-  SUPERVISOR   // Supervisor da unidade
-  ANALYST      // Analista (lança corridas)
-  VIEWER       // Somente visualização
+  SUPERADMIN // Alchemy staff
+  ADMIN // Gestor do laboratório
+  SUPERVISOR // Supervisor da unidade
+  ANALYST // Analista (lança corridas)
+  VIEWER // Somente visualização
 }
 
 enum RunStatus {
   OK
-  ALERT      // violou ±2s (Alerta)
-  REJECT     // violou ±3s ou outra regra de rejeição (Erro)
+  ALERT // violou ±2s (Alerta)
+  REJECT // violou ±3s ou outra regra de rejeição (Erro)
 }
