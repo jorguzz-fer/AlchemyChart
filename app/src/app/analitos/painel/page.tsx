@@ -3,6 +3,12 @@
 import LeveyJenningsChart from "@/components/LeveyJenningsChart";
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import {
+  parseWestgardRules,
+  WESTGARD_RULE_KEYS,
+  type WestgardRuleKey,
+  type WestgardRuleState,
+} from "@/lib/westgard-config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,6 +20,7 @@ interface AnalyteRaw {
   active: boolean;
   equipment: { id: string; name: string };
   material: { id: string; name: string };
+  westgardRules: unknown;
   _count: { stats: number };
 }
 
@@ -75,6 +82,27 @@ function Toggle({
 
 const LEVEL_COLORS = ["text-danger-600", "text-primary-600", "text-success-600"];
 
+// ─── Rule violation circle ────────────────────────────────────────────────────
+// Renderiza um pequeno círculo colorido representando uma violação Westgard,
+// com cor baseada no state da regra na config do analito (ALERT=amarelo,
+// REJECT=vermelho, OFF=cinza neutro pois mesmo OFF aparece se já estava no DB).
+function RuleCircle({ rule, state }: { rule: string; state: WestgardRuleState }) {
+  const cls =
+    state === "REJECT"
+      ? "bg-danger-500 text-white"
+      : state === "ALERT"
+      ? "bg-warning-400 text-white"
+      : "bg-gray-300 text-white";
+  return (
+    <span
+      className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[9px] font-bold ${cls}`}
+      title={`${rule} — ${state}`}
+    >
+      {rule.replace(":", "")}
+    </span>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 function PainelControleInner() {
@@ -90,6 +118,9 @@ function PainelControleInner() {
   // Toggles
   const [condAtivo, setCondAtivo] = useState(true);
   const [chartLevelIdx, setChartLevelIdx] = useState(0);
+  const [valoresUltimo, setValoresUltimo] = useState(false);     // false=Todos, true=Último (últimas 20)
+  const [lotesEmUso, setLotesEmUso] = useState(false);           // false=Todos, true=Em uso
+  const [emObservacao, setEmObservacao] = useState(false);       // analito em observação (flag visual)
 
   // Panel data
   const [painelData, setPainelData] = useState<PainelData | null>(null);
@@ -230,14 +261,37 @@ function PainelControleInner() {
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const chartValues = rows
+  const allChartValues = rows
     .map((r) => r.values[chartLevelIdx])
     .filter((v): v is number => v !== null);
+  // Toggle "Último": mostra apenas últimas 20 corridas (janela típica de Westgard)
+  const chartValues = valoresUltimo ? allChartValues.slice(-20) : allChartValues;
   const chartStat = painelData?.stats[chartLevelIdx];
   const chartMean = chartStat?.statPeriod?.mean ?? chartStat?.currentStats?.mean ?? 0;
   const chartSd = chartStat?.statPeriod?.sd ?? chartStat?.currentStats?.sd ?? 1;
 
   const isSetupPhase = !painelData || painelData.stats.every((s) => !s.statPeriod);
+
+  // Westgard rules config (vem do analyte master — todas as duplicatas têm a mesma)
+  const westgardRules = useMemo(() => {
+    if (!painelData?.analytes[0]) return null;
+    return parseWestgardRules(painelData.analytes[0].westgardRules);
+  }, [painelData]);
+
+  // Agrupa regras por estado para o bloco de configuração no rodapé
+  const rulesGrouped = useMemo(() => {
+    if (!westgardRules) return { alerts: [] as string[], rejects: [] as string[], offs: [] as string[] };
+    const alerts: string[] = [];
+    const rejects: string[] = [];
+    const offs: string[] = [];
+    for (const key of WESTGARD_RULE_KEYS) {
+      const state = westgardRules[key];
+      if (state === "ALERT") alerts.push(key);
+      else if (state === "REJECT") rejects.push(key);
+      else offs.push(key);
+    }
+    return { alerts, rejects, offs };
+  }, [westgardRules]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -270,8 +324,33 @@ function PainelControleInner() {
               <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
                 Analito em observação
               </span>
-              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500" />
+              <input
+                type="checkbox"
+                checked={emObservacao}
+                onChange={(e) => setEmObservacao(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+              />
             </label>
+
+            <div className="w-px h-8 bg-gray-200 dark:bg-[#1a1a1a]" />
+
+            <Toggle
+              label="Valores no gráfico"
+              optA="Último"
+              optB="Todos"
+              value={!valoresUltimo}
+              onChange={(v) => setValoresUltimo(!v)}
+            />
+
+            <div className="w-px h-8 bg-gray-200 dark:bg-[#1a1a1a]" />
+
+            <Toggle
+              label="Visualizar lotes"
+              optA="Em uso"
+              optB="Todos"
+              value={!lotesEmUso}
+              onChange={(v) => setLotesEmUso(!v)}
+            />
 
             {hasBothConditions && (
               <>
@@ -285,6 +364,14 @@ function PainelControleInner() {
                 />
               </>
             )}
+          </div>
+        )}
+
+        {/* Banner em observação */}
+        {emObservacao && selName && (
+          <div className="w-full bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 rounded-lg px-3 py-1.5 text-xs text-warning-800 dark:text-warning-200 flex items-center gap-2">
+            <span className="material-symbols-outlined text-warning-500 text-[14px]">visibility</span>
+            Este analito está marcado em observação — fique atento às próximas corridas.
           </div>
         )}
       </div>
@@ -381,7 +468,7 @@ function PainelControleInner() {
                           </div>
                         </th>
                       ))}
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500">Alertas</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 min-w-[120px]">Regras</th>
                       <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 w-10">Ações</th>
                     </tr>
                   </thead>
@@ -419,19 +506,26 @@ function PainelControleInner() {
                             </td>
                           ))}
                           {Array.from({ length: 3 - levelCount }).map((_, i) => (
-                            <td key={`ph-${i}`} className="px-3 py-2.5 text-center text-gray-300">—</td>
+                            <td key={`ph-${i}`} className="px-3 py-2.5 text-center">
+                              <span className="text-[10px] text-gray-300 italic">Mat. Desabilitado</span>
+                            </td>
                           ))}
                           <td className="px-3 py-2.5 text-xs">
-                            {anyViolation && row.violations.map((v, i) =>
-                              v && v.length > 0 ? (
-                                <div key={i} className="flex flex-wrap gap-0.5">
-                                  {v.map((rule) => (
-                                    <span key={rule} className="bg-danger-100 text-danger-700 text-[10px] font-bold px-1 py-0.5 rounded">
-                                      {rule}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : null
+                            {anyViolation && westgardRules && (
+                              <div className="flex flex-wrap items-center gap-1">
+                                {row.violations.flatMap((v, i) =>
+                                  (v ?? []).map((rule, ri) => {
+                                    const state = westgardRules[rule as WestgardRuleKey] ?? "OFF";
+                                    return (
+                                      <RuleCircle
+                                        key={`${i}-${ri}-${rule}`}
+                                        rule={rule}
+                                        state={state}
+                                      />
+                                    );
+                                  })
+                                )}
+                              </div>
                             )}
                           </td>
                           <td className="px-3 py-2.5 text-center">
@@ -466,7 +560,9 @@ function PainelControleInner() {
                         </td>
                       ))}
                       {Array.from({ length: 3 - levelCount }).map((_, i) => (
-                        <td key={`ph-${i}`} />
+                        <td key={`ph-${i}`} className="px-3 py-2 text-center">
+                          <span className="text-[10px] text-gray-300 italic">Mat. Desabilitado</span>
+                        </td>
                       ))}
                       <td className="px-3 py-2" colSpan={2}>
                         <button
@@ -644,6 +740,61 @@ function PainelControleInner() {
               </div>
             </div>
           </div>
+
+          {/* ── Card 4: Regras de Westgard especificadas e critérios ────────── */}
+          {westgardRules && (
+            <div className="bg-white dark:bg-[#141414] rounded-2xl border border-gray-100 dark:border-[#1a1a1a] overflow-hidden">
+              <div className="bg-gray-100 dark:bg-[#1a1a1a] px-5 py-3">
+                <h3 className="font-bold text-sm text-black dark:text-white">
+                  Regras de Westgard especificadas e critérios
+                </h3>
+              </div>
+              <div className="p-5 space-y-3">
+                {/* Alerta */}
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">Alerta</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {rulesGrouped.alerts.length === 0 ? (
+                      <span className="text-xs text-gray-300 italic">Nenhuma regra configurada como alerta</span>
+                    ) : (
+                      rulesGrouped.alerts.map((rule) => <RuleCircle key={rule} rule={rule} state="ALERT" />)
+                    )}
+                  </div>
+                </div>
+
+                {/* Rejeição */}
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">Rejeição</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {rulesGrouped.rejects.length === 0 ? (
+                      <span className="text-xs text-gray-300 italic">Nenhuma regra configurada como rejeição</span>
+                    ) : (
+                      rulesGrouped.rejects.map((rule) => <RuleCircle key={rule} rule={rule} state="REJECT" />)
+                    )}
+                  </div>
+                </div>
+
+                {/* Desabilitadas (compacto, opcional) */}
+                {rulesGrouped.offs.length > 0 && (
+                  <div className="flex items-center gap-3 pt-2 border-t border-gray-100 dark:border-[#1a1a1a]">
+                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide w-20">
+                      Desabilitadas
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1">
+                      {rulesGrouped.offs.map((rule) => (
+                        <span
+                          key={rule}
+                          className="text-[10px] text-gray-400 px-1.5 py-0.5 border border-gray-200 dark:border-[#1a1a1a] rounded"
+                        >
+                          {rule}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
