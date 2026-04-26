@@ -18,11 +18,17 @@ export async function POST(req: Request) {
   const numValue = Number(value);
   if (isNaN(numValue)) return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
 
-  // Verify analyte belongs to this tenant
+  // Verify analyte belongs to this tenant + busca AnalyteMaterial (Fase 1)
   const analyte = await prisma.analyte.findFirst({
     where: { id: analyteId, unitRel: { tenantId: session.user.tenantId } },
+    include: { analyteMaterials: { take: 1, orderBy: { createdAt: "asc" } } },
   });
   if (!analyte) return NextResponse.json({ error: "Analito não encontrado" }, { status: 404 });
+
+  // Durante a transição (1:1 Analyte ↔ AnalyteMaterial), pega o primeiro AM
+  // associado a este analyte. Após a deduplicação, o caller passará analyteMaterialId
+  // explicitamente e essa lookup vira opcional.
+  const analyteMaterialId = analyte.analyteMaterials[0]?.id ?? null;
 
   // Get existing runs for this analyte (chronological)
   const existingRuns = await prisma.run.findMany({
@@ -48,10 +54,11 @@ export async function POST(req: Request) {
     violations = result.violations;
   }
 
-  // Save the run
+  // Save the run (popula tanto analyteId legado quanto analyteMaterialId novo)
   const run = await prisma.run.create({
     data: {
       analyteId,
+      analyteMaterialId,
       equipmentId: analyte.equipmentId,
       userId: session.user.id,
       value: numValue,
