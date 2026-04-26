@@ -12,7 +12,16 @@ interface SidebarMenuProps {
 interface AnalyteItem {
   id: string;
   name: string;
+  unit: string | null;
   level: number;
+  equipment: { id: string; name: string };
+  _count: { stats: number };
+}
+
+interface AnalyteNameGroup {
+  name: string;
+  unit: string | null;
+  equipments: { id: string; name: string; hasAtivo: boolean; hasPreparo: boolean }[];
 }
 
 interface EquipmentItem {
@@ -50,7 +59,8 @@ function SearchInput({ value, onChange }: { value: string; onChange: (v: string)
 const SidebarMenu: React.FC<SidebarMenuProps> = () => {
   const pathname = usePathname();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
-  const [analytes, setAnalytes] = useState<AnalyteItem[]>([]);
+  const [analyteGroups, setAnalyteGroups] = useState<AnalyteNameGroup[]>([]);
+  const [expandedAnalyteNames, setExpandedAnalyteNames] = useState<Set<string>>(new Set());
   const [equipments, setEquipments] = useState<EquipmentItem[]>([]);
   const [analyteSearch, setAnalyteSearch] = useState("");
   const [equipSearch, setEquipSearch] = useState("");
@@ -61,7 +71,25 @@ const SidebarMenu: React.FC<SidebarMenuProps> = () => {
       fetch("/api/analitos").then((r) => r.json()).catch(() => []),
       fetch("/api/equipamentos").then((r) => r.json()).catch(() => []),
     ]).then(([anal, eq]) => {
-      if (Array.isArray(anal)) setAnalytes(anal);
+      if (Array.isArray(anal)) {
+        // Group analytes by name → equipment
+        const nameMap = new Map<string, AnalyteNameGroup>();
+        for (const a of anal as AnalyteItem[]) {
+          const key = `${a.name}||${a.unit ?? ""}`;
+          if (!nameMap.has(key)) nameMap.set(key, { name: a.name, unit: a.unit, equipments: [] });
+          const g = nameMap.get(key)!;
+          let eg = g.equipments.find((e) => e.id === a.equipment.id);
+          if (!eg) {
+            eg = { id: a.equipment.id, name: a.equipment.name, hasAtivo: false, hasPreparo: false };
+            g.equipments.push(eg);
+          }
+          if (a._count.stats > 0) eg.hasAtivo = true;
+          else eg.hasPreparo = true;
+        }
+        setAnalyteGroups(
+          Array.from(nameMap.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+        );
+      }
       if (Array.isArray(eq)) setEquipments(eq);
     });
   }, []);
@@ -69,11 +97,19 @@ const SidebarMenu: React.FC<SidebarMenuProps> = () => {
   const toggleMenu = (label: string) =>
     setOpenMenus((prev) => ({ ...prev, [label]: !prev[label] }));
 
+  const toggleAnalyteName = (key: string) =>
+    setExpandedAnalyteNames((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
 
-  const filteredAnalytes = analytes.filter((a) =>
-    a.name.toLowerCase().includes(analyteSearch.toLowerCase())
+  const filteredGroups = analyteGroups.filter((g) =>
+    g.name.toLowerCase().includes(analyteSearch.toLowerCase()) ||
+    g.equipments.some((e) => e.name.toLowerCase().includes(analyteSearch.toLowerCase()))
   );
   const filteredEquipments = equipments.filter((e) =>
     e.name.toLowerCase().includes(equipSearch.toLowerCase())
@@ -157,7 +193,7 @@ const SidebarMenu: React.FC<SidebarMenuProps> = () => {
             </Link>
           </li>
 
-          {/* Por Analitos — dynamic */}
+          {/* Por Analitos — árvore nome → equipamento */}
           <li>
             <button onClick={() => toggleMenu("analitos")} className={sectionBtnClass("analitos")}>
               <span className="material-symbols-outlined text-[20px]">biotech</span>
@@ -169,22 +205,57 @@ const SidebarMenu: React.FC<SidebarMenuProps> = () => {
             {openMenus["analitos"] && (
               <div className="mt-1">
                 <SearchInput value={analyteSearch} onChange={setAnalyteSearch} />
-                <ul className="max-h-56 overflow-y-auto space-y-0.5 px-1">
-                  {filteredAnalytes.length === 0 && (
-                    <li className="px-3 py-2 text-xs text-gray-400">Nenhum resultado</li>
+                <div className="max-h-72 overflow-y-auto">
+                  {filteredGroups.length === 0 && (
+                    <p className="px-3 py-2 text-xs text-gray-400">Nenhum resultado</p>
                   )}
-                  {filteredAnalytes.map((a) => (
-                    <li key={a.id}>
-                      <Link
-                        href={`/analitos/painel?id=${a.id}`}
-                        className={`${subLinkClass(`/analitos/painel?id=${a.id}`)} flex items-center justify-between`}
-                      >
-                        <span>{a.name} ({a.level})</span>
-                        <span className="material-symbols-outlined text-[14px] text-gray-300">unfold_more</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                  {filteredGroups.map((g, gi) => {
+                    const nameKey = `${g.name}||${g.unit ?? ""}`;
+                    const isExpanded = expandedAnalyteNames.has(nameKey);
+                    return (
+                      <div key={nameKey}>
+                        <button
+                          onClick={() => toggleAnalyteName(nameKey)}
+                          className="w-full flex items-center gap-1.5 px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-all rounded-md"
+                        >
+                          <span className="text-[10px] font-bold text-gray-400 w-5 shrink-0">
+                            {String(gi + 1).padStart(2, "0")}.
+                          </span>
+                          <span className="flex-1 text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
+                            {g.name}
+                            {g.unit && <span className="text-gray-400 ml-1">({g.unit})</span>}
+                          </span>
+                          <span className="text-[10px] text-gray-400 shrink-0">{g.equipments.length}</span>
+                          <span className={`material-symbols-outlined text-[14px] text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}>
+                            expand_more
+                          </span>
+                        </button>
+                        {isExpanded && g.equipments.map((eq) => {
+                          const href = `/analitos/painel?name=${encodeURIComponent(g.name)}&eq=${eq.id}`;
+                          const active = isActive("/analitos/painel") && pathname.includes("painel");
+                          return (
+                            <Link
+                              key={eq.id}
+                              href={href}
+                              className={`flex items-center gap-2 pl-8 pr-3 py-1.5 rounded-md transition-all ${
+                                active && typeof window !== "undefined" && window.location.search.includes(`eq=${eq.id}`)
+                                  ? "text-primary-600 font-semibold bg-primary-50 dark:bg-[#1a1a1a]"
+                                  : "text-gray-500 dark:text-gray-400 hover:text-primary-500 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[13px]">precision_manufacturing</span>
+                              <span className="flex-1 text-xs truncate">{eq.name}</span>
+                              <div className="flex gap-0.5 shrink-0">
+                                {eq.hasAtivo && <span className="w-1.5 h-1.5 rounded-full bg-success-500" title="Ativo" />}
+                                {eq.hasPreparo && <span className="w-1.5 h-1.5 rounded-full bg-warning-400" title="Preparo" />}
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
                 <div className="mt-1 px-1 space-y-0.5 border-t border-gray-100 dark:border-[#1a1a1a] pt-1">
                   <Link href="/analitos/painel" className={subLinkClass("/analitos/painel")}>
                     Painel de Controle
