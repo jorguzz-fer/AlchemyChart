@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 
 interface Equipment { id: string; name: string }
@@ -89,24 +90,6 @@ export default function AnalitosPage() {
   const openCreate = () => {
     setEditItem(null);
     setForm(EMPTY_FORM);
-    setError(null);
-    setShowModal(true);
-  };
-
-  const openEdit = (item: GroupedAnalyte) => {
-    setEditItem(item);
-    // Pega a primeira combinação como referência para os campos legacy
-    const firstAm = item.analyteMaterials[0];
-    setForm({
-      name: item.name,
-      unit: item.unit ?? "",
-      level: String(firstAm?.level ?? 1),
-      equipmentId: firstAm?.equipmentId ?? "",
-      materialId: firstAm?.materialId ?? "",
-      decimalPlaces: String(item.decimalPlaces),
-      maxImprecision: item.maxImprecision !== null ? String(item.maxImprecision) : "",
-      imprecisionSource: item.imprecisionSource ?? "",
-    });
     setError(null);
     setShowModal(true);
   };
@@ -267,13 +250,13 @@ export default function AnalitosPage() {
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => openEdit(item)}
+                        <Link
+                          href={`/analitos/${item.masterId}`}
                           title="Editar"
                           className="w-8 h-8 rounded-lg text-gray-500 hover:bg-primary-50 hover:text-primary-500 transition-all flex items-center justify-center"
                         >
                           <span className="material-symbols-outlined text-[18px]">edit</span>
-                        </button>
+                        </Link>
                         <button
                           onClick={() => handleToggleActive(item)}
                           title={item.active ? "Desabilitar" : "Habilitar"}

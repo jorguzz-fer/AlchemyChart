@@ -4,31 +4,56 @@ import { requireRole, ROLES_MANAGE } from "@/lib/authz";
 import { logAudit, getClientIp } from "@/lib/audit";
 
 // GET /api/analitos/[id]
-// Retorna um Analyte específico com analyteMaterials[] aninhado.
-// Útil para a tela de edição.
+// Retorna o Analyte master + analyteMaterials AGREGADAS de todas as duplicatas
+// com o mesmo nome+unidade (visão consolidada por exame).
+// Os campos exam-level (decimalPlaces, westgardRules, etc.) ficam coerentes
+// pois o PATCH sincroniza entre duplicatas.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await requireRole(ROLES_MANAGE);
   if (error) return error;
 
   const { id } = await params;
-  const item = await prisma.analyte.findFirst({
+
+  // Localiza o analito master
+  const master = await prisma.analyte.findFirst({
     where: { id, unitRel: { tenantId: session.user.tenantId } },
+  });
+  if (!master) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Encontra todas as duplicatas (mesmo nome+unidade) e agrega materials
+  const duplicates = await prisma.analyte.findMany({
+    where: {
+      unitRel: { tenantId: session.user.tenantId },
+      name: master.name,
+      unit: master.unit,
+    },
     include: {
-      equipment: { select: { id: true, name: true } },
-      material: { select: { id: true, name: true } },
-      _count: { select: { stats: true, runs: true } },
       analyteMaterials: {
         include: {
           equipment: { select: { id: true, name: true } },
           material: { select: { id: true, name: true, lot: true } },
           _count: { select: { runs: true } },
         },
+        orderBy: [{ equipment: { name: "asc" } }, { level: "asc" }],
       },
+      _count: { select: { runs: true, stats: true } },
     },
   });
-  if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json(item);
+  // Agrega todos os AnalyteMaterials, anotando qual Analyte legado é dono
+  const allAnalyteMaterials = duplicates.flatMap((d) =>
+    d.analyteMaterials.map((am) => ({ ...am, ownerAnalyteId: d.id }))
+  );
+
+  const totalRuns = duplicates.reduce((sum, d) => sum + d._count.runs, 0);
+  const totalStats = duplicates.reduce((sum, d) => sum + d._count.stats, 0);
+
+  return NextResponse.json({
+    ...master,
+    duplicateIds: duplicates.map((d) => d.id),
+    analyteMaterials: allAnalyteMaterials,
+    _count: { runs: totalRuns, stats: totalStats },
+  });
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {

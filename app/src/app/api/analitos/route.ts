@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAuth, requireRole, ROLES_MANAGE } from "@/lib/authz";
 import { logAudit, getClientIp } from "@/lib/audit";
+import { DEFAULT_WESTGARD_RULES } from "@/lib/westgard-config";
 
 // GET /api/analitos
 // Retorna a lista LEGADA (1 registro por combinação analito+equip+material+nivel),
@@ -85,7 +86,7 @@ export async function POST(req: Request) {
           ? Number(maxImprecision)
           : null,
         imprecisionSource: imprecisionSource?.trim() || null,
-        westgardRules: westgardRules ?? undefined,
+        westgardRules: westgardRules ?? DEFAULT_WESTGARD_RULES,
       },
     });
 
