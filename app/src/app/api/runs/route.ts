@@ -49,7 +49,14 @@ export async function POST(req: Request) {
   let violations: string[] = [];
 
   if (statPeriod && statPeriod.n >= SETUP_THRESHOLD) {
-    const result = checkWestgard(numValue, statPeriod.mean, statPeriod.sd, history);
+    // Passa westgardRules do analito — se null, checkWestgard usa DEFAULT_WESTGARD_RULES
+    const result = checkWestgard(
+      numValue,
+      statPeriod.mean,
+      statPeriod.sd,
+      history,
+      analyte.westgardRules
+    );
     status = result.status;
     violations = result.violations;
   }
