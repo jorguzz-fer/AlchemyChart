@@ -172,12 +172,25 @@ function PainelControleInner() {
       .map((a) => a.id);
   }, [allAnalytes, selName, selEqId, condAtivo]);
 
-  // Does this name+eq combo have both conditions?
-  const hasBothConditions = useMemo(() => {
-    if (!selName || !selEqId) return false;
+  // Does this name+eq combo have analytes in each condition?
+  const conditionAvailability = useMemo(() => {
+    if (!selName || !selEqId) return { hasAtivo: false, hasPreparo: false };
     const matches = allAnalytes.filter((a) => a.name === selName && a.equipment.id === selEqId);
-    return matches.some((a) => a._count.stats > 0) && matches.some((a) => a._count.stats === 0);
+    return {
+      hasAtivo: matches.some((a) => a._count.stats > 0),
+      hasPreparo: matches.some((a) => a._count.stats === 0),
+    };
   }, [allAnalytes, selName, selEqId]);
+  const hasBothConditions = conditionAvailability.hasAtivo && conditionAvailability.hasPreparo;
+
+  // Auto-seleciona a única condição disponível ao trocar de seleção, para
+  // não travar o usuário na condição padrão (Ativo) quando o equipamento
+  // só tem controles em Preparo (ou vice-versa).
+  useEffect(() => {
+    const { hasAtivo, hasPreparo } = conditionAvailability;
+    if (!hasAtivo && hasPreparo && condAtivo) setCondAtivo(false);
+    else if (hasAtivo && !hasPreparo && !condAtivo) setCondAtivo(true);
+  }, [conditionAvailability, condAtivo]);
 
   // ── Load panel data ────────────────────────────────────────────────────────
 
