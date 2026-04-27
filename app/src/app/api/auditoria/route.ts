@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/authz";
+import { ymdInLabTz, weekdayInLabTz } from "@/lib/tz";
 
 // GET /api/auditoria?equipment=<id>&from=YYYY-MM-DD&to=YYYY-MM-DD
 //
@@ -62,11 +63,10 @@ export async function GET(req: Request) {
     },
   });
 
-  // Agrega contagem por (date, analyteKey)
+  // Agrega contagem por (date, analyteKey) — date no fuso do laboratório
   const counts = new Map<string, number>();
   for (const r of runs) {
-    const d = new Date(r.runAt);
-    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const date = ymdInLabTz(new Date(r.runAt));
     const aKey = `${r.analyte.name}||${r.analyte.unit ?? ""}`;
     const key = `${date}||${aKey}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);
@@ -81,14 +81,17 @@ export async function GET(req: Request) {
     counts: Record<string, number>;
   }> = [];
 
-  const cursor = new Date(to);
-  cursor.setHours(0, 0, 0, 0);
-  const fromMidnight = new Date(from);
-  fromMidnight.setHours(0, 0, 0, 0);
+  // Cursor às 12:00 UTC do "dia local" — garante que `ymdInLabTz` retorne
+  // o dia local correto e que `setUTCDate(-1)` ande exatamente 24h sem
+  // ser afetado por DST do servidor.
+  const toLocal = ymdInLabTz(to);
+  const fromLocal = ymdInLabTz(from);
+  const cursor = new Date(`${toLocal}T12:00:00Z`);
+  const stop = new Date(`${fromLocal}T12:00:00Z`);
 
-  while (cursor.getTime() >= fromMidnight.getTime()) {
-    const date = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
-    const wd = cursor.getDay();
+  while (cursor.getTime() >= stop.getTime()) {
+    const date = ymdInLabTz(cursor);
+    const wd = weekdayInLabTz(cursor);
     const isWeekend = wd === 0 || wd === 6;
 
     const dayCounts: Record<string, number> = {};
@@ -97,14 +100,14 @@ export async function GET(req: Request) {
     }
 
     days.push({ date, weekday: WEEKDAYS[wd], isWeekend, counts: dayCounts });
-    cursor.setDate(cursor.getDate() - 1);
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
 
   return NextResponse.json({
     equipment,
     analytes: uniqueAnalytes,
     days,
-    fromDate: from.toISOString().slice(0, 10),
-    toDate: to.toISOString().slice(0, 10),
+    fromDate: ymdInLabTz(from),
+    toDate: ymdInLabTz(to),
   });
 }

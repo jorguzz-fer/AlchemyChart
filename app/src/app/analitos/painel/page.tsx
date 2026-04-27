@@ -119,7 +119,6 @@ function PainelControleInner() {
   const [condAtivo, setCondAtivo] = useState(true);
   const [chartLevelIdx, setChartLevelIdx] = useState(0);
   const [valoresUltimo, setValoresUltimo] = useState(false);     // false=Todos, true=Último (últimas 20)
-  const [lotesEmUso, setLotesEmUso] = useState(false);           // false=Todos, true=Em uso
   const [emObservacao, setEmObservacao] = useState(false);       // analito em observação (flag visual)
 
   // Panel data
@@ -340,16 +339,6 @@ function PainelControleInner() {
               optB="Todos"
               value={!valoresUltimo}
               onChange={(v) => setValoresUltimo(!v)}
-            />
-
-            <div className="w-px h-8 bg-gray-200 dark:bg-[#1a1a1a]" />
-
-            <Toggle
-              label="Visualizar lotes"
-              optA="Em uso"
-              optB="Todos"
-              value={!lotesEmUso}
-              onChange={(v) => setLotesEmUso(!v)}
             />
 
             {hasBothConditions && (

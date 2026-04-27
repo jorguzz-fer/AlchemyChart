@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/authz";
+import { ymInLabTz, ymdInLabTz } from "@/lib/tz";
 
 // GET /api/analitos/cv-mensal?name=X&eq=Y&from=YYYY-MM-DD&to=YYYY-MM-DD
 //
@@ -23,8 +24,10 @@ export async function GET(req: Request) {
   if (!name) return NextResponse.json({ error: "name obrigatório" }, { status: 400 });
   if (!equipmentId) return NextResponse.json({ error: "eq obrigatório" }, { status: 400 });
 
-  // Default range: últimos 24 meses
+  // Default range: últimos 24 meses. `to` normalizado para fim-de-dia para
+  // não cortar corridas do próprio dia quando vem como YYYY-MM-DD.
   const to = toStr ? new Date(toStr) : new Date();
+  if (toStr) to.setHours(23, 59, 59, 999);
   const from = fromStr ? new Date(fromStr) : new Date(to.getFullYear(), to.getMonth() - 23, 1);
 
   // Busca AnalyteMaterials que casam (name + equipmentId) no tenant
@@ -55,8 +58,8 @@ export async function GET(req: Request) {
       analyteUnit: null,
       equipmentName: null,
       levels: [],
-      fromDate: from.toISOString().slice(0, 10),
-      toDate: to.toISOString().slice(0, 10),
+      fromDate: ymdInLabTz(from),
+      toDate: ymdInLabTz(to),
     });
   }
 
@@ -85,11 +88,10 @@ export async function GET(req: Request) {
     }
     const entry = matMap.get(am.materialId)!;
 
-    // Agrupa runs por YYYY-MM
+    // Agrupa runs por YYYY-MM no fuso do laboratório (não do servidor)
     const monthMap = new Map<string, number[]>();
     for (const r of am.runs) {
-      const d = new Date(r.runAt);
-      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const ym = ymInLabTz(new Date(r.runAt));
       if (!monthMap.has(ym)) monthMap.set(ym, []);
       monthMap.get(ym)!.push(r.value);
     }
@@ -124,7 +126,7 @@ export async function GET(req: Request) {
     analyteUnit: ams[0].analyte.unit,
     equipmentName: ams[0].equipment.name,
     levels,
-    fromDate: from.toISOString().slice(0, 10),
-    toDate: to.toISOString().slice(0, 10),
+    fromDate: ymdInLabTz(from),
+    toDate: ymdInLabTz(to),
   });
 }

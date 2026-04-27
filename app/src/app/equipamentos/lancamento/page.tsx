@@ -282,7 +282,11 @@ function LancamentoInner() {
             analyteId: entry.analyteId,
             value: parseFloat(entry.value.replace(",", ".")),
           }),
-        }).then((r) => r.json())
+        }).then(async (r) => {
+          const body = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(body?.error || `HTTP ${r.status}`);
+          return body;
+        })
       )
     );
 
