@@ -9,6 +9,7 @@ const MENU = [
   { href: "/admin/usuarios", icon: "group", label: "Gerir usuários" },
   { href: "/admin/unidades", icon: "domain", label: "Gerir unidades" },
   { href: "/admin/laboratorio", icon: "corporate_fare", label: "Gerir laboratório" },
+  { href: "/admin/import-qualichart", icon: "cloud_upload", label: "Importar dados QualiChart" },
   { href: "/ajuda", icon: "help", label: "Ajuda & Suporte" },
 ];
 
