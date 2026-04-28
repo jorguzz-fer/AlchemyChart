@@ -1,0 +1,1767 @@
+{
+  "generatedAt": "2026-04-28T19:38:41.621Z",
+  "source": "qualichart_analitos_estruturado.xlsx",
+  "analytes": [
+    {
+      "refId": "AN001",
+      "name": "01. Leucócitos",
+      "unit": "/mm³",
+      "decimalPlaces": 3,
+      "maxImprecision": 5.5,
+      "imprecisionSource": "Tabela de Variação Biológica",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN002",
+      "name": "02. Hemácias (RBC)",
+      "unit": "x1000000",
+      "decimalPlaces": 3,
+      "maxImprecision": 1.6,
+      "imprecisionSource": "Tabela de Variação Biológica",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN003",
+      "name": "03. Hemoglobina",
+      "unit": "g/dL",
+      "decimalPlaces": 1,
+      "maxImprecision": 1.4,
+      "imprecisionSource": "Tabela de Variação Biológica",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN004",
+      "name": "04. Hematócrito",
+      "unit": "%",
+      "decimalPlaces": 1,
+      "maxImprecision": 1.4,
+      "imprecisionSource": "Tabela de Variação Biológica",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN005",
+      "name": "05. VCM",
+      "unit": "fL",
+      "decimalPlaces": 1,
+      "maxImprecision": 1.6,
+      "imprecisionSource": "Tabela EFLM",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN006",
+      "name": "06. HCM",
+      "unit": "pg",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN007",
+      "name": "07. CHCM",
+      "unit": "g/dL",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN008",
+      "name": "08. RDW-CV",
+      "unit": "%",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN009",
+      "name": "09. Plaquetas",
+      "unit": "mil/mm³",
+      "decimalPlaces": 3,
+      "maxImprecision": 4.6,
+      "imprecisionSource": "Tabela de Variação Biológica",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN010",
+      "name": "10. VPM",
+      "unit": "fL",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN011",
+      "name": "Ácido úrico",
+      "unit": "mg/dL",
+      "decimalPlaces": 3,
+      "maxImprecision": null,
+      "imprecisionSource": "Dado Histórico",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN012",
+      "name": "Albumina",
+      "unit": "g/dL",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": "Dado Histórico",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN013",
+      "name": "ALT",
+      "unit": "U/L",
+      "decimalPlaces": 1,
+      "maxImprecision": 12.5,
+      "imprecisionSource": "Tabela de Variação Biológica",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN014",
+      "name": "Amilase",
+      "unit": "U/L",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN015",
+      "name": "AST",
+      "unit": "U/L",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": "Dado Histórico",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN016",
+      "name": "Bilirrubina direta",
+      "unit": "mg/dL",
+      "decimalPlaces": 3,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN017",
+      "name": "Bilirrubina total",
+      "unit": "mg/dL",
+      "decimalPlaces": 3,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN018",
+      "name": "Cálcio",
+      "unit": "mg/dL",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN019",
+      "name": "Cálcio Iônico",
+      "unit": "mmol/L",
+      "decimalPlaces": 3,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "OFF",
+        "2:2s": "REJECT",
+        "1:3s": "ALERT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN020",
+      "name": "CK-MB",
+      "unit": "U/L",
+      "decimalPlaces": 1,
+      "maxImprecision": 9.9,
+      "imprecisionSource": "Tabela de Variação Biológica",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN021",
+      "name": "Cloreto",
+      "unit": "mmol/L",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN022",
+      "name": "Colesterol total",
+      "unit": "mg/dL",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN023",
+      "name": "Cortisol",
+      "unit": "µg/dL",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN024",
+      "name": "CPK",
+      "unit": "U/L",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN025",
+      "name": "Creatinina",
+      "unit": "mg/dL",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": "Dado Histórico",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN026",
+      "name": "Ferro",
+      "unit": "µg/dL",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN027",
+      "name": "Fosfatase alcalina",
+      "unit": "U/L",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN028",
+      "name": "Fósforo",
+      "unit": "mg/dL",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN029",
+      "name": "Frutosamina",
+      "unit": "mmol/L",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN030",
+      "name": "GGT",
+      "unit": "U/L",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN031",
+      "name": "Glicose",
+      "unit": "mg/dL",
+      "decimalPlaces": 1,
+      "maxImprecision": 2.9,
+      "imprecisionSource": "Tabela de Variação Biológica",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN032",
+      "name": "HDL",
+      "unit": "mg/dL",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN033",
+      "name": "Insulina",
+      "unit": "µUI/mL",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN034",
+      "name": "LDH",
+      "unit": "U/L",
+      "decimalPlaces": 1,
+      "maxImprecision": 20,
+      "imprecisionSource": "Dado do Equipamento",
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN035",
+      "name": "Lipase",
+      "unit": "U/L",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN036",
+      "name": "Magnésio",
+      "unit": "mg/dL",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN037",
+      "name": "Potássio",
+      "unit": "mmol/L",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN038",
+      "name": "Progesterona",
+      "unit": "ng/mL",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN039",
+      "name": "Proteína total",
+      "unit": "g/dL",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN040",
+      "name": "Sódio",
+      "unit": "mmol/L",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN041",
+      "name": "T3 total",
+      "unit": "ng/dL",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN042",
+      "name": "T4 livre",
+      "unit": "ng/dL",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN043",
+      "name": "T4 total",
+      "unit": "µg/dL",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN044",
+      "name": "Triglicérides",
+      "unit": "mg/dL",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN045",
+      "name": "TSH",
+      "unit": "ng/dL",
+      "decimalPlaces": 2,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    },
+    {
+      "refId": "AN046",
+      "name": "Ureia",
+      "unit": "mg/dL",
+      "decimalPlaces": 1,
+      "maxImprecision": null,
+      "imprecisionSource": null,
+      "westgardRules": {
+        "1:2s": "ALERT",
+        "2:2s": "REJECT",
+        "1:3s": "REJECT",
+        "R:4s": "REJECT",
+        "4:1s": "REJECT",
+        "7T": "REJECT",
+        "7Xm": "REJECT",
+        "10Xm": "REJECT"
+      }
+    }
+  ],
+  "materials": [
+    {
+      "analyteRefId": "AN001",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN001",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN001",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN001",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN002",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN002",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN002",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN002",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN003",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN003",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Ativo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN003",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN003",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN004",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN004",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN004",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN004",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN005",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN005",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN005",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN005",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN006",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN006",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN006",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN006",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN007",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN007",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN007",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN007",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN008",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN008",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN008",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN008",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN009",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN009",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN009",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN009",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN010",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN010",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 01",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN010",
+      "materialName": "Hemato Canino 90136",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN010",
+      "materialName": "Hemato Canino 90135",
+      "equipmentName": "HEMATO 02",
+      "situacao": "Pronto",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN011",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (1)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN011",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (1)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN011",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (1)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN011",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN011",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN012",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (1)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN012",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (1)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN012",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (1)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN012",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN012",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN014",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN014",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN014",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN014",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN015",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN016",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN016",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN016",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN016",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN017",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN017",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN017",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN018",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN018",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN018",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN020",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN020",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN021",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN021",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN021",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN021",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN022",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN022",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN022",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN022",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN024",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN024",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN025",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN025",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN025",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN025",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN026",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN026",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN026",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN026",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN027",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN027",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN027",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN027",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN029",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN029",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN029",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN029",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN030",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN030",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN030",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN030",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN031",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN031",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN031",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN031",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN032",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN032",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN032",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN034",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN034",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN035",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN035",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN035",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN035",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN036",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN036",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN036",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN036",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN037",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN037",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN037",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN037",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN039",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN039",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN039",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN040",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN040",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN040",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN040",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN044",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN044",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN044",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN044",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN046",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Ativo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN046",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 1
+    },
+    {
+      "analyteRefId": "AN046",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Preparo",
+      "level": 2
+    },
+    {
+      "analyteRefId": "AN046",
+      "materialName": "Soro Canino",
+      "equipmentName": "AU 480 (2)",
+      "situacao": "Pronto",
+      "level": 2
+    }
+  ]
+}
