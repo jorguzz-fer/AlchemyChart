@@ -71,6 +71,8 @@ export async function POST(req: Request) {
     materialsCreated: 0,
     analyteMaterialsCreated: 0,
     analyteMaterialsExisting: 0,
+    legacyCleaned: 0,        // AnalyteMaterials órfãs (sem corridas) removidas
+    legacyPreserved: 0,      // AnalyteMaterials órfãs preservadas por terem corridas
     skippedRows: [] as string[],
   };
 
@@ -211,7 +213,74 @@ export async function POST(req: Request) {
     }
   }
 
-  // ── 6) Audit log ────────────────────────────────────────────────────────
+  // ── 6) Cleanup de vínculos legados não cobertos pelo seed ──────────────
+  // Para cada (nome de analito, equipamento) presente no seed, encontra
+  // AnalyteMaterials no DB que NÃO casam com nenhuma combinação do seed.
+  // Remove apenas AMs com 0 corridas (preserva histórico real do laboratório).
+
+  // Set de combinações esperadas, pelas chaves (analyteName, equipName, materialName, level)
+  const expectedCombos = new Set<string>();
+  for (const m of seed.materials) {
+    expectedCombos.add(`${m.analyteRefId ? seedById.get(m.analyteRefId)?.name ?? "" : ""}||${m.equipmentName}||${m.materialName}||${m.level}`);
+  }
+
+  // Set de (analyteName, equipName) que o seed cobre — só deletamos AMs DENTRO
+  // desses escopos para não tocar em combos que o seed não fala nada
+  const seedScope = new Set<string>();
+  for (const m of seed.materials) {
+    const aName = seedById.get(m.analyteRefId)?.name;
+    if (aName) seedScope.add(`${aName}||${m.equipmentName}`);
+  }
+
+  // Busca todas as AMs cujos analitos têm nome cobertos pelo seed
+  const seedAnalyteNames = Array.from(new Set(seed.analytes.map((a) => a.name)));
+  const candidateAMs = await prisma.analyteMaterial.findMany({
+    where: {
+      material: { unit: { tenantId } },
+      analyte: { name: { in: seedAnalyteNames } },
+    },
+    include: {
+      analyte: { select: { id: true, name: true } },
+      equipment: { select: { id: true, name: true } },
+      material: { select: { id: true, name: true } },
+      _count: { select: { runs: true } },
+    },
+  });
+
+  for (const am of candidateAMs) {
+    const scopeKey = `${am.analyte.name}||${am.equipment.name}`;
+    if (!seedScope.has(scopeKey)) continue; // seed não fala nada desse escopo, pula
+
+    const comboKey = `${am.analyte.name}||${am.equipment.name}||${am.material.name}||${am.level}`;
+    if (expectedCombos.has(comboKey)) continue; // está no seed, mantém
+
+    // É um vínculo legado — remove se não tem corridas
+    if (am._count.runs > 0) {
+      summary.legacyPreserved++;
+      summary.skippedRows.push(
+        `Vínculo legado preservado (tem ${am._count.runs} corridas): ${am.analyte.name} / ${am.equipment.name} / ${am.material.name} / N${am.level}`
+      );
+      continue;
+    }
+
+    // Deleta a AnalyteMaterial
+    await prisma.analyteMaterial.delete({ where: { id: am.id } });
+
+    // Se o legacy Analyte ficou órfão (sem outras AMs e sem runs próprios),
+    // remove também — evita poluir a lista deduplicada com placeholders mortos
+    const remainingAMs = await prisma.analyteMaterial.count({
+      where: { analyteId: am.analyte.id },
+    });
+    if (remainingAMs === 0) {
+      const runCount = await prisma.run.count({ where: { analyteId: am.analyte.id } });
+      if (runCount === 0) {
+        await prisma.analyte.delete({ where: { id: am.analyte.id } });
+      }
+    }
+    summary.legacyCleaned++;
+  }
+
+  // ── 7) Audit log ────────────────────────────────────────────────────────
   await logAudit({
     tenantId,
     userId: session.user.id,

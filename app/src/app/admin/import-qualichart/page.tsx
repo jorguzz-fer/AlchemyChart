@@ -10,6 +10,8 @@ interface ImportSummary {
   materialsCreated: number;
   analyteMaterialsCreated: number;
   analyteMaterialsExisting: number;
+  legacyCleaned: number;
+  legacyPreserved: number;
   skippedRows: string[];
 }
 
@@ -146,6 +148,16 @@ export default function ImportQualichartPage() {
             <div className="bg-white rounded-lg p-3 border border-success-200">
               <div className="text-xs text-gray-500 uppercase tracking-wide mb-0.5">Vínculos já existentes</div>
               <div className="text-2xl font-bold text-gray-500">{result.summary.analyteMaterialsExisting}</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-success-200">
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-0.5">Legados removidos</div>
+              <div className="text-2xl font-bold text-warning-700">{result.summary.legacyCleaned}</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-success-200">
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-0.5">Legados preservados</div>
+              <div className="text-2xl font-bold text-gray-500" title="Vínculos não previstos no seed mas com corridas — preservados pra não perder histórico">
+                {result.summary.legacyPreserved}
+              </div>
             </div>
           </div>
 
