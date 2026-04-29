@@ -10,6 +10,7 @@ const MENU = [
   { href: "/admin/unidades", icon: "domain", label: "Gerir unidades" },
   { href: "/admin/laboratorio", icon: "corporate_fare", label: "Gerir laboratório" },
   { href: "/admin/import-qualichart", icon: "cloud_upload", label: "Importar dados QualiChart" },
+  { href: "/admin/import-pdf-runs", icon: "upload_file", label: "Importar corridas PDF" },
   { href: "/ajuda", icon: "help", label: "Ajuda & Suporte" },
 ];
 
