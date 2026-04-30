@@ -194,21 +194,25 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
       };
     }
 
-    // Ativo: níveis com AM PRONTO ou com stats próprios
-    const ativoArr: [LevelEntry | null, LevelEntry | null, LevelEntry | null] = [1, 2, 3].map(
-      (lvl) => {
-        const info = levels.get(lvl);
-        return info && (info.hasProntoAM || info.hasStats) ? makeEntry(lvl, info) : null;
-      }
-    ) as [LevelEntry | null, LevelEntry | null, LevelEntry | null];
-
-    // Preparo: todos os níveis configurados (qualquer AM ou Analyte legado)
-    const preparoArr: [LevelEntry | null, LevelEntry | null, LevelEntry | null] = [1, 2, 3].map(
+    // Ativo e Preparo: ambos exibem todos os 3 níveis populados.
+    // A distinção visual (label + ícone de gráfico ativo) sinaliza o estado;
+    // funcionalmente, qualquer um aceita lançamento e o backend cria o AM
+    // faltante on-demand.
+    const allArr: [LevelEntry | null, LevelEntry | null, LevelEntry | null] = [1, 2, 3].map(
       (lvl) => {
         const info = levels.get(lvl);
         return info ? makeEntry(lvl, info) : null;
       }
     ) as [LevelEntry | null, LevelEntry | null, LevelEntry | null];
+
+    const ativoArr = allArr;
+    // Preparo precisa de cópia separada para não compartilhar referências
+    // (cada condição armazena value/status próprios ao editar).
+    const preparoArr: [LevelEntry | null, LevelEntry | null, LevelEntry | null] = [
+      allArr[0] ? { ...allArr[0] } : null,
+      allArr[1] ? { ...allArr[1] } : null,
+      allArr[2] ? { ...allArr[2] } : null,
+    ];
 
     const conditions: ConditionGroup[] = [];
     if (isAtivo) {
