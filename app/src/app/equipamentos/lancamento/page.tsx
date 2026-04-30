@@ -35,11 +35,12 @@ type RunStatus = "idle" | "saving" | "ok" | "alert" | "reject" | "error";
 
 interface LevelEntry {
   analyteId: string;
+  analyteMaterialId: string | null; // null = nível sem AM, backend cria ao salvar
   level: number;
   value: string;
   status: RunStatus;
   violations: string[];
-  // Bula (do AnalyteMaterial)
+  // Bula (do AnalyteMaterial quando existe)
   materialName: string;
   materialLot: string | null;
   manufacturerMean: number | null;
@@ -73,6 +74,7 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
   // todos os níveis configurados via AMs).
   type LevelInfo = {
     analyteId: string; // qual Analyte legado usar para criar runs deste nível
+    analyteMaterialId: string | null; // null = nível sem AM, backend cria ao salvar
     materialName: string;
     materialLot: string | null;
     manufacturerMean: number | null;
@@ -138,12 +140,35 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
       if (shouldUpdate) {
         item.levels.set(level, {
           analyteId: a.id,
+          analyteMaterialId: am?.id ?? null,
           materialName,
           materialLot,
           manufacturerMean: am?.manufacturerMean ?? null,
           manufacturerSD: am?.manufacturerSD ?? null,
           hasProntoAM: hasProntoAM || (existing?.hasProntoAM ?? false),
           hasStats: hasStatsHere || (existing?.hasStats ?? false),
+        });
+      }
+    }
+  }
+
+  // Para cada analito do mapa, garante que TODOS os níveis (1, 2, 3) tenham
+  // info no Preparo — se faltar, gera um placeholder usando dados de outro
+  // nível existente. Backend auto-cria o AM quando o usuário lançar valor.
+  for (const item of map.values()) {
+    const anyLevel = Array.from(item.levels.values())[0];
+    if (!anyLevel) continue;
+    for (const lvl of [1, 2, 3]) {
+      if (!item.levels.has(lvl)) {
+        item.levels.set(lvl, {
+          analyteId: anyLevel.analyteId,
+          analyteMaterialId: null, // sinaliza que será criado on-demand
+          materialName: anyLevel.materialName,
+          materialLot: anyLevel.materialLot,
+          manufacturerMean: null,
+          manufacturerSD: null,
+          hasProntoAM: false,
+          hasStats: false,
         });
       }
     }
@@ -157,6 +182,7 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
     function makeEntry(level: number, info: LevelInfo): LevelEntry {
       return {
         analyteId: info.analyteId,
+        analyteMaterialId: info.analyteMaterialId,
         level,
         value: "",
         status: "idle",
@@ -340,6 +366,8 @@ function LancamentoInner() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             analyteId: entry.analyteId,
+            analyteMaterialId: entry.analyteMaterialId,
+            level: entry.level,
             value: parseFloat(entry.value.replace(",", ".")),
           }),
         }).then(async (r) => {

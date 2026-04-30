@@ -12,23 +12,53 @@ export async function POST(req: Request) {
   if (error) return error;
 
   const body = await req.json();
-  const { analyteId, value, note } = body;
+  const { analyteId, value, note, level: rawLevel, analyteMaterialId: providedAmId } = body;
 
   if (!analyteId) return NextResponse.json({ error: "analyteId obrigatório" }, { status: 400 });
   const numValue = Number(value);
   if (isNaN(numValue)) return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
 
-  // Verify analyte belongs to this tenant + busca AnalyteMaterial (Fase 1)
+  // Verify analyte belongs to this tenant — busca todos os AMs para auto-resolver
   const analyte = await prisma.analyte.findFirst({
     where: { id: analyteId, unitRel: { tenantId: session.user.tenantId } },
-    include: { analyteMaterials: { take: 1, orderBy: { createdAt: "asc" } } },
+    include: {
+      analyteMaterials: { include: { material: { select: { id: true, name: true } } } },
+    },
   });
   if (!analyte) return NextResponse.json({ error: "Analito não encontrado" }, { status: 404 });
 
-  // Durante a transição (1:1 Analyte ↔ AnalyteMaterial), pega o primeiro AM
-  // associado a este analyte. Após a deduplicação, o caller passará analyteMaterialId
-  // explicitamente e essa lookup vira opcional.
-  const analyteMaterialId = analyte.analyteMaterials[0]?.id ?? null;
+  // Resolve qual AnalyteMaterial vincular à corrida.
+  // Prioridade: 1) providedAmId  2) AM no nível solicitado  3) primeiro AM do analito
+  // Se nada existe e level foi passado, cria um AM novo com PREPARO + material
+  // herdado (preferindo o AM existente em qualquer nível, fallback para a.materialId).
+  const targetLevel = rawLevel != null ? Math.min(3, Math.max(1, Number(rawLevel) || 0)) : null;
+  let analyteMaterialId: string | null = null;
+
+  if (providedAmId && analyte.analyteMaterials.some((am) => am.id === providedAmId)) {
+    analyteMaterialId = providedAmId;
+  } else if (targetLevel) {
+    const existing = analyte.analyteMaterials.find((am) => am.level === targetLevel);
+    if (existing) {
+      analyteMaterialId = existing.id;
+    } else {
+      // Auto-cria AM no nível solicitado, herdando material de outro AM ou do legado
+      const refAm = analyte.analyteMaterials[0];
+      const materialId = refAm?.material.id ?? analyte.materialId;
+      const created = await prisma.analyteMaterial.create({
+        data: {
+          analyteId: analyte.id,
+          equipmentId: analyte.equipmentId,
+          materialId,
+          level: targetLevel,
+          status: "PREPARO",
+        },
+        select: { id: true },
+      });
+      analyteMaterialId = created.id;
+    }
+  } else {
+    analyteMaterialId = analyte.analyteMaterials[0]?.id ?? null;
+  }
 
   // Get existing runs for this analyte (chronological)
   const existingRuns = await prisma.run.findMany({
