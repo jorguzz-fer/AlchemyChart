@@ -68,38 +68,52 @@ const STATUS_META: Record<RunStatus, { label: string; cls: string }> = {
 };
 
 function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
-  // Chave: nome||unidade → condMap por materialId
-  const analyteMap = new Map<string, { group: AnalyteGroup; condMap: Map<string, ConditionGroup> }>();
+  // Agrupa por nome (independente de material/unit/lote) e separa níveis em
+  // dois conjuntos: ativos (com AM PRONTO ou stats) e preparo (todos configurados).
+  type Item = {
+    name: string;
+    unit: string | null;
+    ativoLevels: Map<number, LevelEntry>; // Níveis em modo Ativo (PRONTO ou com stats)
+    allLevels: Map<number, LevelEntry>; // Todos os níveis configurados (Preparo)
+    hasStats: boolean;
+    hasPromo: boolean;
+  };
+  const map = new Map<string, Item>();
 
   for (const a of list) {
     if (a.active === false) continue;
-    const analyteKey = `${a.name}||${a.unit ?? ""}`;
+    const key = a.name;
 
-    if (!analyteMap.has(analyteKey)) {
-      const group: AnalyteGroup = { name: a.name, unit: a.unit, conditions: [] };
-      analyteMap.set(analyteKey, { group, condMap: new Map() });
+    if (!map.has(key)) {
+      map.set(key, {
+        name: a.name,
+        unit: a.unit,
+        ativoLevels: new Map(),
+        allLevels: new Map(),
+        hasStats: false,
+        hasPromo: false,
+      });
     }
 
-    const { group, condMap } = analyteMap.get(analyteKey)!;
+    const item = map.get(key)!;
+    if (!item.unit && a.unit) item.unit = a.unit;
 
-    if (!condMap.has(a.material.id)) {
-      const cond: ConditionGroup = {
-        materialId: a.material.id,
-        hasStats: a._count.stats > 0,
-        levels: [null, null, null],
-      };
-      condMap.set(a.material.id, cond);
-      group.conditions.push(cond);
-    }
+    // Procura AM correspondente ao nível deste registro legado.
+    // Prefere status=PRONTO; se não houver, pega o primeiro do mesmo nível; senão o primeiro qualquer.
+    const ams = a.analyteMaterials ?? [];
+    const amSameLevel = ams.filter((m) => m.level === a.level);
+    const am =
+      amSameLevel.find((m) => m.status === "PRONTO") ??
+      amSameLevel[0] ??
+      ams.find((m) => m.status === "PRONTO") ??
+      ams[0];
+    const isPronto = ams.some((m) => m.level === a.level && m.status === "PRONTO");
+    const hasStatsHere = a._count.stats > 0;
 
-    const cond = condMap.get(a.material.id)!;
-    if (a._count.stats > 0) cond.hasStats = true;
+    if (hasStatsHere) item.hasStats = true;
+    if (isPronto) item.hasPromo = true;
 
-    // Pega os dados de bula do AnalyteMaterial (durante transição: 1:1 com Analyte)
-    const am = a.analyteMaterials?.[0];
-
-    const idx = Math.min(Math.max(a.level, 1), 3) - 1;
-    cond.levels[idx] = {
+    const entry: LevelEntry = {
       analyteId: a.id,
       level: a.level,
       value: "",
@@ -110,30 +124,52 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
       manufacturerMean: am?.manufacturerMean ?? null,
       manufacturerSD: am?.manufacturerSD ?? null,
     };
-  }
 
-  // Para cada analito, garante sempre 2 condições: Ativo + Preparo
-  for (const { group } of analyteMap.values()) {
-    group.conditions.sort((a, b) => Number(b.hasStats) - Number(a.hasStats));
+    // allLevels: aceita qualquer registro (prefere o com stats)
+    const existingAll = item.allLevels.get(a.level);
+    if (!existingAll || hasStatsHere) {
+      item.allLevels.set(a.level, entry);
+    }
 
-    if (group.conditions.length === 1) {
-      const existing = group.conditions[0];
-      const placeholder: ConditionGroup = {
-        materialId: `__placeholder_${existing.hasStats ? "preparo" : "ativo"}`,
-        hasStats: !existing.hasStats,
-        levels: [null, null, null],
-      };
-      if (existing.hasStats) {
-        group.conditions.push(placeholder);
-      } else {
-        group.conditions.unshift(placeholder);
+    // ativoLevels: só registros com PRONTO ou stats
+    if (isPronto || hasStatsHere) {
+      const existingAtivo = item.ativoLevels.get(a.level);
+      if (!existingAtivo || hasStatsHere) {
+        item.ativoLevels.set(a.level, entry);
       }
     }
   }
 
-  return Array.from(analyteMap.values())
-    .map(({ group }) => group)
-    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const result: AnalyteGroup[] = [];
+
+  for (const { name, unit, ativoLevels, allLevels, hasStats, hasPromo } of map.values()) {
+    const isAtivo = hasStats || hasPromo;
+
+    const ativoArr: [LevelEntry | null, LevelEntry | null, LevelEntry | null] = [
+      ativoLevels.get(1) ?? null,
+      ativoLevels.get(2) ?? null,
+      ativoLevels.get(3) ?? null,
+    ];
+    const preparoArr: [LevelEntry | null, LevelEntry | null, LevelEntry | null] = [
+      allLevels.get(1) ?? null,
+      allLevels.get(2) ?? null,
+      allLevels.get(3) ?? null,
+    ];
+
+    const conditions: ConditionGroup[] = [];
+
+    // Condição Ativo: só exibida se há estatísticas ou material PRONTO
+    if (isAtivo) {
+      conditions.push({ materialId: "ativo", hasStats: true, levels: ativoArr });
+    }
+
+    // Condição Preparo: sempre exibida com todos os níveis configurados
+    conditions.push({ materialId: "preparo", hasStats: false, levels: preparoArr });
+
+    result.push({ name, unit, conditions });
+  }
+
+  return result.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
 
 // Tooltip com informações de bula da condição (todos os níveis)

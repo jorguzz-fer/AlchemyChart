@@ -11,6 +11,7 @@ const MENU = [
   { href: "/admin/laboratorio", icon: "corporate_fare", label: "Gerir laboratório" },
   { href: "/admin/import-qualichart", icon: "cloud_upload", label: "Importar dados QualiChart" },
   { href: "/admin/import-pdf-runs", icon: "upload_file", label: "Importar corridas PDF" },
+  { href: "/admin/import-qualichart-runs", icon: "history", label: "Importar corridas QualiChart" },
   { href: "/ajuda", icon: "help", label: "Ajuda & Suporte" },
 ];
 
