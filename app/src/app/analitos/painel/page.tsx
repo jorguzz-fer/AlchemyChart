@@ -373,6 +373,18 @@ function PainelControleInner() {
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  // Slots fixos para níveis 1, 2, 3 — referencia o analyte correspondente
+  // ou null se aquele nível não estiver configurado. Garante ordem estável
+  // mesmo quando faltam níveis legados (ex: analito tem só level=2).
+  type LevelSlot = { analyte: AnalyteRaw; analyteIdx: number } | null;
+  const levelSlots: [LevelSlot, LevelSlot, LevelSlot] = useMemo(() => {
+    const find = (level: number): LevelSlot => {
+      const idx = analytes.findIndex((a) => a.level === level);
+      return idx >= 0 ? { analyte: analytes[idx], analyteIdx: idx } : null;
+    };
+    return [find(1), find(2), find(3)];
+  }, [analytes]);
+
   const allChartValues = rows
     .map((r) => r.values[chartLevelIdx])
     .filter((v): v is number => v !== null);
@@ -546,36 +558,41 @@ function PainelControleInner() {
                     <tr>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 w-10">#</th>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 w-14">Editar</th>
-                      {analytes.map((a) => (
-                        <th key={a.id} className="px-3 py-3 text-center text-xs font-semibold min-w-[90px]">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <input
-                              type="checkbox"
-                              readOnly
-                              checked={a._count.stats > 0}
-                              onChange={() => {}}
-                              className="w-3.5 h-3.5 rounded border-gray-300 text-danger-600 cursor-default"
-                            />
-                            <span className={a._count.stats > 0 ? "text-danger-700" : "text-gray-400"}>
-                              Nível {a.level}
-                            </span>
-                            {a._count.stats > 0 && (
-                              <span className="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold px-1 py-0.5 rounded uppercase">
-                                ATIVAR
+                      {levelSlots.map((slot, idx) => {
+                        const level = idx + 1;
+                        if (!slot) {
+                          return (
+                            <th key={`lvl-${level}`} className="px-3 py-3 text-center text-xs font-semibold text-gray-300 min-w-[80px]">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <input type="checkbox" readOnly checked={false} onChange={() => {}} className="w-3.5 h-3.5 rounded border-gray-300 cursor-default" />
+                                <span>Nível {level}</span>
+                              </div>
+                            </th>
+                          );
+                        }
+                        const a = slot.analyte;
+                        return (
+                          <th key={`lvl-${level}`} className="px-3 py-3 text-center text-xs font-semibold min-w-[90px]">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <input
+                                type="checkbox"
+                                readOnly
+                                checked={a._count.stats > 0}
+                                onChange={() => {}}
+                                className="w-3.5 h-3.5 rounded border-gray-300 text-danger-600 cursor-default"
+                              />
+                              <span className={a._count.stats > 0 ? "text-danger-700" : "text-gray-400"}>
+                                Nível {level}
                               </span>
-                            )}
-                          </div>
-                        </th>
-                      ))}
-                      {/* Empty level placeholders */}
-                      {Array.from({ length: 3 - levelCount }).map((_, i) => (
-                        <th key={`ph-${i}`} className="px-3 py-3 text-center text-xs font-semibold text-gray-300 min-w-[80px]">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <input type="checkbox" readOnly checked={false} onChange={() => {}} className="w-3.5 h-3.5 rounded border-gray-300 cursor-default" />
-                            <span>Nível {levelCount + i + 1}</span>
-                          </div>
-                        </th>
-                      ))}
+                              {a._count.stats > 0 && (
+                                <span className="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold px-1 py-0.5 rounded uppercase">
+                                  ATIVAR
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                        );
+                      })}
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 min-w-[120px]">Regras</th>
                       <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 w-10">Ações</th>
                     </tr>
@@ -640,40 +657,46 @@ function PainelControleInner() {
                               )}
                             </div>
                           </td>
-                          {analytes.map((a, i) => (
-                            <td key={a.id} className={`px-3 py-2.5 text-center font-semibold ${LEVEL_COLORS[i]}`}>
-                              {editingRow === row.no && row.runIds[i] ? (
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={editValues[i] ?? ""}
-                                  onChange={(e) => {
-                                    const next = [...editValues];
-                                    next[i] = e.target.value;
-                                    setEditValues(next);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") saveEdit(row);
-                                    else if (e.key === "Escape") cancelEdit();
-                                  }}
-                                  autoFocus={i === row.runIds.findIndex((id) => !!id)}
-                                  className="w-full px-2 py-1 rounded border border-primary-300 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
-                                />
-                              ) : row.values[i] !== null ? (
-                                Number(row.values[i]).toLocaleString("pt-BR", {
-                                  minimumFractionDigits: 3,
-                                  maximumFractionDigits: 3,
-                                })
-                              ) : (
-                                <span className="text-gray-300 font-normal">—</span>
-                              )}
-                            </td>
-                          ))}
-                          {Array.from({ length: 3 - levelCount }).map((_, i) => (
-                            <td key={`ph-${i}`} className="px-3 py-2.5 text-center">
-                              <span className="text-[10px] text-gray-300 italic">Mat. Desabilitado</span>
-                            </td>
-                          ))}
+                          {levelSlots.map((slot, idx) => {
+                            const level = idx + 1;
+                            if (!slot) {
+                              return (
+                                <td key={`lvl-${level}`} className="px-3 py-2.5 text-center">
+                                  <span className="text-[10px] text-gray-300 italic">Mat. Desabilitado</span>
+                                </td>
+                              );
+                            }
+                            const i = slot.analyteIdx;
+                            return (
+                              <td key={`lvl-${level}`} className={`px-3 py-2.5 text-center font-semibold ${LEVEL_COLORS[idx]}`}>
+                                {editingRow === row.no && row.runIds[i] ? (
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={editValues[i] ?? ""}
+                                    onChange={(e) => {
+                                      const next = [...editValues];
+                                      next[i] = e.target.value;
+                                      setEditValues(next);
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") saveEdit(row);
+                                      else if (e.key === "Escape") cancelEdit();
+                                    }}
+                                    autoFocus={i === row.runIds.findIndex((id) => !!id)}
+                                    className="w-full px-2 py-1 rounded border border-primary-300 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+                                  />
+                                ) : row.values[i] !== null ? (
+                                  Number(row.values[i]).toLocaleString("pt-BR", {
+                                    minimumFractionDigits: 3,
+                                    maximumFractionDigits: 3,
+                                  })
+                                ) : (
+                                  <span className="text-gray-300 font-normal">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
                           <td className="px-3 py-2.5 text-xs">
                             {anyViolation && westgardRules && (
                               <div className="flex flex-wrap items-center gap-1">
@@ -705,29 +728,35 @@ function PainelControleInner() {
                     <tr className="border-t-2 border-primary-200 dark:border-primary-800 bg-primary-50/30 dark:bg-primary-900/10">
                       <td className="px-3 py-2.5 text-xs font-semibold text-gray-400">{rows.length + 1}</td>
                       <td />
-                      {analytes.map((a, i) => (
-                        <td key={a.id} className="px-3 py-2">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={newValues[i] ?? ""}
-                            onChange={(e) => {
-                              const v = [...newValues];
-                              v[i] = e.target.value;
-                              setNewValues(v);
-                              setSaveError(null);
-                            }}
-                            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-                            placeholder="0,000"
-                            className="w-full px-2 py-1 rounded-lg border border-primary-200 dark:border-primary-800 bg-white dark:bg-[#141414] text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
-                          />
-                        </td>
-                      ))}
-                      {Array.from({ length: 3 - levelCount }).map((_, i) => (
-                        <td key={`ph-${i}`} className="px-3 py-2 text-center">
-                          <span className="text-[10px] text-gray-300 italic">Mat. Desabilitado</span>
-                        </td>
-                      ))}
+                      {levelSlots.map((slot, idx) => {
+                        const level = idx + 1;
+                        if (!slot) {
+                          return (
+                            <td key={`lvl-${level}`} className="px-3 py-2 text-center">
+                              <span className="text-[10px] text-gray-300 italic">Mat. Desabilitado</span>
+                            </td>
+                          );
+                        }
+                        const i = slot.analyteIdx;
+                        return (
+                          <td key={`lvl-${level}`} className="px-3 py-2">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={newValues[i] ?? ""}
+                              onChange={(e) => {
+                                const v = [...newValues];
+                                v[i] = e.target.value;
+                                setNewValues(v);
+                                setSaveError(null);
+                              }}
+                              onKeyDown={(e) => e.key === "Enter" && handleSave()}
+                              placeholder="0,000"
+                              className="w-full px-2 py-1 rounded-lg border border-primary-200 dark:border-primary-800 bg-white dark:bg-[#141414] text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                            />
+                          </td>
+                        );
+                      })}
                       <td className="px-3 py-2" colSpan={2}>
                         <button
                           onClick={handleSave}
@@ -824,16 +853,19 @@ function PainelControleInner() {
                     <thead className="bg-gray-50 dark:bg-[#0c0b0b]">
                       <tr>
                         <th className="px-3 py-2 text-left text-gray-400 font-semibold w-16">#</th>
-                        {analytes.map((a) => (
-                          <th key={a.id} className="px-3 py-2 text-center text-gray-600 dark:text-gray-400 font-semibold">
-                            Nível {a.level}
-                          </th>
-                        ))}
-                        {Array.from({ length: 3 - levelCount }).map((_, i) => (
-                          <th key={`ph-h-${i}`} className="px-3 py-2 text-center text-gray-300 font-semibold">
-                            Nível {levelCount + i + 1}
-                          </th>
-                        ))}
+                        {levelSlots.map((slot, idx) => {
+                          const level = idx + 1;
+                          return (
+                            <th
+                              key={`lvl-${level}`}
+                              className={`px-3 py-2 text-center font-semibold ${
+                                slot ? "text-gray-600 dark:text-gray-400" : "text-gray-300"
+                              }`}
+                            >
+                              Nível {level}
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
@@ -843,10 +875,11 @@ function PainelControleInner() {
                           <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>Uso</span>
                         </td>
                         <td className="px-3 py-2 text-gray-500">Média</td>
-                        {Array.from({ length: 3 }).map((_, i) => {
-                          const v = painelData.stats[i]?.statPeriod?.mean ?? null;
+                        {levelSlots.map((slot, idx) => {
+                          const level = idx + 1;
+                          const v = slot ? painelData.stats[slot.analyteIdx]?.statPeriod?.mean ?? null : null;
                           return (
-                            <td key={i} className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
+                            <td key={`lvl-${level}`} className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
                               {v !== null ? v.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : <span className="text-gray-300">—</span>}
                             </td>
                           );
@@ -854,10 +887,11 @@ function PainelControleInner() {
                       </tr>
                       <tr className="border-t border-gray-100 dark:border-[#1a1a1a]">
                         <td className="px-3 py-2 text-gray-500">Desvio Padrão</td>
-                        {Array.from({ length: 3 }).map((_, i) => {
-                          const v = painelData.stats[i]?.statPeriod?.sd ?? null;
+                        {levelSlots.map((slot, idx) => {
+                          const level = idx + 1;
+                          const v = slot ? painelData.stats[slot.analyteIdx]?.statPeriod?.sd ?? null : null;
                           return (
-                            <td key={i} className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
+                            <td key={`lvl-${level}`} className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
                               {v !== null ? v.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : <span className="text-gray-300">—</span>}
                             </td>
                           );
@@ -877,13 +911,14 @@ function PainelControleInner() {
                             </td>
                           )}
                           <td className="px-3 py-2 text-gray-500">{row.label}</td>
-                          {Array.from({ length: 3 }).map((_, i) => {
-                            const v = painelData.stats[i]?.currentStats?.[row.key] ?? null;
-                            if (v === null) return <td key={i} className="px-3 py-2 text-center text-gray-300">—</td>;
+                          {levelSlots.map((slot, idx) => {
+                            const level = idx + 1;
+                            const v = slot ? painelData.stats[slot.analyteIdx]?.currentStats?.[row.key] ?? null : null;
+                            if (v === null) return <td key={`lvl-${level}`} className="px-3 py-2 text-center text-gray-300">—</td>;
                             if (row.key === "cv") {
                               const bad = (v as number) > 5;
                               return (
-                                <td key={i} className="px-3 py-2 text-center">
+                                <td key={`lvl-${level}`} className="px-3 py-2 text-center">
                                   <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${bad ? "bg-danger-500 text-white" : "bg-success-500 text-white"}`}>
                                     {(v as number).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                                   </span>
@@ -891,7 +926,7 @@ function PainelControleInner() {
                               );
                             }
                             return (
-                              <td key={i} className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
+                              <td key={`lvl-${level}`} className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
                                 {row.key === "n" ? v : (v as number).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
                               </td>
                             );
