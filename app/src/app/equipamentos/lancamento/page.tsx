@@ -68,13 +68,22 @@ const STATUS_META: Record<RunStatus, { label: string; cls: string }> = {
 };
 
 function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
-  // Agrupa por nome (independente de material/unit/lote) e separa níveis em
-  // dois conjuntos: ativos (com AM PRONTO ou stats) e preparo (todos configurados).
+  // Agrupa por nome do analito. Itera pelos AnalyteMaterials de cada Analyte
+  // legado para popular níveis (não usa o Analyte.level que pode não cobrir
+  // todos os níveis configurados via AMs).
+  type LevelInfo = {
+    analyteId: string; // qual Analyte legado usar para criar runs deste nível
+    materialName: string;
+    materialLot: string | null;
+    manufacturerMean: number | null;
+    manufacturerSD: number | null;
+    hasProntoAM: boolean;
+    hasStats: boolean;
+  };
   type Item = {
     name: string;
     unit: string | null;
-    ativoLevels: Map<number, LevelEntry>; // Níveis em modo Ativo (PRONTO ou com stats)
-    allLevels: Map<number, LevelEntry>; // Todos os níveis configurados (Preparo)
+    levels: Map<number, LevelInfo>;
     hasStats: boolean;
     hasPromo: boolean;
   };
@@ -88,8 +97,7 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
       map.set(key, {
         name: a.name,
         unit: a.unit,
-        ativoLevels: new Map(),
-        allLevels: new Map(),
+        levels: new Map(),
         hasStats: false,
         hasPromo: false,
       });
@@ -98,72 +106,88 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
     const item = map.get(key)!;
     if (!item.unit && a.unit) item.unit = a.unit;
 
-    // Procura AM correspondente ao nível deste registro legado.
-    // Prefere status=PRONTO; se não houver, pega o primeiro do mesmo nível; senão o primeiro qualquer.
-    const ams = a.analyteMaterials ?? [];
-    const amSameLevel = ams.filter((m) => m.level === a.level);
-    const am =
-      amSameLevel.find((m) => m.status === "PRONTO") ??
-      amSameLevel[0] ??
-      ams.find((m) => m.status === "PRONTO") ??
-      ams[0];
-    const isPronto = ams.some((m) => m.level === a.level && m.status === "PRONTO");
     const hasStatsHere = a._count.stats > 0;
-
     if (hasStatsHere) item.hasStats = true;
-    if (isPronto) item.hasPromo = true;
 
-    const entry: LevelEntry = {
-      analyteId: a.id,
-      level: a.level,
-      value: "",
-      status: "idle",
-      violations: [],
-      materialName: a.material.name,
-      materialLot: a.material.lot ?? null,
-      manufacturerMean: am?.manufacturerMean ?? null,
-      manufacturerSD: am?.manufacturerSD ?? null,
-    };
+    const ams = a.analyteMaterials ?? [];
 
-    // allLevels: aceita qualquer registro (prefere o com stats)
-    const existingAll = item.allLevels.get(a.level);
-    if (!existingAll || hasStatsHere) {
-      item.allLevels.set(a.level, entry);
-    }
+    // Determina níveis a processar: AMs reais + nível legado (fallback)
+    const levelsToProcess = new Set<number>();
+    for (const am of ams) levelsToProcess.add(am.level);
+    if (levelsToProcess.size === 0) levelsToProcess.add(a.level);
 
-    // ativoLevels: só registros com PRONTO ou stats
-    if (isPronto || hasStatsHere) {
-      const existingAtivo = item.ativoLevels.get(a.level);
-      if (!existingAtivo || hasStatsHere) {
-        item.ativoLevels.set(a.level, entry);
+    for (const level of levelsToProcess) {
+      const amsAtLevel = ams.filter((m) => m.level === level);
+      const hasProntoAM = amsAtLevel.some((m) => m.status === "PRONTO");
+      if (hasProntoAM) item.hasPromo = true;
+
+      // AM preferido: PRONTO no mesmo nível, senão qualquer um
+      const am = amsAtLevel.find((m) => m.status === "PRONTO") ?? amsAtLevel[0];
+
+      // Material a exibir: do AM se disponível, senão do Analyte legado
+      const materialName = am?.material?.name ?? a.material.name;
+      const materialLot = am?.material?.lot ?? a.material.lot ?? null;
+
+      const existing = item.levels.get(level);
+      // Atualiza se: não existe, ou este tem PRONTO/stats e o anterior não
+      const shouldUpdate =
+        !existing ||
+        (hasProntoAM && !existing.hasProntoAM) ||
+        (hasStatsHere && !existing.hasStats);
+
+      if (shouldUpdate) {
+        item.levels.set(level, {
+          analyteId: a.id,
+          materialName,
+          materialLot,
+          manufacturerMean: am?.manufacturerMean ?? null,
+          manufacturerSD: am?.manufacturerSD ?? null,
+          hasProntoAM: hasProntoAM || (existing?.hasProntoAM ?? false),
+          hasStats: hasStatsHere || (existing?.hasStats ?? false),
+        });
       }
     }
   }
 
   const result: AnalyteGroup[] = [];
 
-  for (const { name, unit, ativoLevels, allLevels, hasStats, hasPromo } of map.values()) {
+  for (const { name, unit, levels, hasStats, hasPromo } of map.values()) {
     const isAtivo = hasStats || hasPromo;
 
-    const ativoArr: [LevelEntry | null, LevelEntry | null, LevelEntry | null] = [
-      ativoLevels.get(1) ?? null,
-      ativoLevels.get(2) ?? null,
-      ativoLevels.get(3) ?? null,
-    ];
-    const preparoArr: [LevelEntry | null, LevelEntry | null, LevelEntry | null] = [
-      allLevels.get(1) ?? null,
-      allLevels.get(2) ?? null,
-      allLevels.get(3) ?? null,
-    ];
+    function makeEntry(level: number, info: LevelInfo): LevelEntry {
+      return {
+        analyteId: info.analyteId,
+        level,
+        value: "",
+        status: "idle",
+        violations: [],
+        materialName: info.materialName,
+        materialLot: info.materialLot,
+        manufacturerMean: info.manufacturerMean,
+        manufacturerSD: info.manufacturerSD,
+      };
+    }
+
+    // Ativo: níveis com AM PRONTO ou com stats próprios
+    const ativoArr: [LevelEntry | null, LevelEntry | null, LevelEntry | null] = [1, 2, 3].map(
+      (lvl) => {
+        const info = levels.get(lvl);
+        return info && (info.hasProntoAM || info.hasStats) ? makeEntry(lvl, info) : null;
+      }
+    ) as [LevelEntry | null, LevelEntry | null, LevelEntry | null];
+
+    // Preparo: todos os níveis configurados (qualquer AM ou Analyte legado)
+    const preparoArr: [LevelEntry | null, LevelEntry | null, LevelEntry | null] = [1, 2, 3].map(
+      (lvl) => {
+        const info = levels.get(lvl);
+        return info ? makeEntry(lvl, info) : null;
+      }
+    ) as [LevelEntry | null, LevelEntry | null, LevelEntry | null];
 
     const conditions: ConditionGroup[] = [];
-
-    // Condição Ativo: só exibida se há estatísticas ou material PRONTO
     if (isAtivo) {
       conditions.push({ materialId: "ativo", hasStats: true, levels: ativoArr });
     }
-
-    // Condição Preparo: sempre exibida com todos os níveis configurados
     conditions.push({ materialId: "preparo", hasStats: false, levels: preparoArr });
 
     result.push({ name, unit, conditions });
