@@ -134,6 +134,12 @@ function PainelControleInner() {
   const PAGE_SIZE = 10;
   const [page, setPage] = useState(1);
 
+  // Inline edit/delete
+  const [editingRow, setEditingRow] = useState<number | null>(null);
+  const [editValues, setEditValues] = useState<string[]>(["", "", ""]);
+  const [rowBusy, setRowBusy] = useState<number | null>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
+
   // ── Load analytes ──────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -263,6 +269,100 @@ function PainelControleInner() {
       loadPanel(selectedAnalyteIds);
     }
     setSaving(false);
+  };
+
+  // ── Edit/Delete handlers ───────────────────────────────────────────────────
+
+  const startEdit = (row: RunRow) => {
+    setRowError(null);
+    setEditingRow(row.no);
+    setEditValues(
+      row.values.map((v) =>
+        v === null
+          ? ""
+          : v.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 3 })
+      )
+    );
+  };
+
+  const cancelEdit = () => {
+    setEditingRow(null);
+    setEditValues(["", "", ""]);
+    setRowError(null);
+  };
+
+  const saveEdit = async (row: RunRow) => {
+    setRowBusy(row.no);
+    setRowError(null);
+
+    const patches: { runId: string; value: number | null }[] = [];
+    for (let i = 0; i < row.runIds.length; i++) {
+      const runId = row.runIds[i];
+      if (!runId) continue;
+      const raw = (editValues[i] ?? "").replace(",", ".").trim();
+      const next = raw ? parseFloat(raw) : NaN;
+      const prev = row.values[i];
+      if (raw === "" || isNaN(next)) continue;
+      if (prev === next) continue;
+      patches.push({ runId, value: next });
+    }
+
+    if (patches.length === 0) {
+      cancelEdit();
+      setRowBusy(null);
+      return;
+    }
+
+    try {
+      const results = await Promise.all(
+        patches.map((p) =>
+          fetch(`/api/runs/${p.runId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ value: p.value }),
+          })
+        )
+      );
+      const failed = results.find((r) => !r.ok);
+      if (failed) {
+        const d = await failed.json().catch(() => ({}));
+        throw new Error(d.error ?? "Erro ao atualizar");
+      }
+      cancelEdit();
+      await loadPanel(selectedAnalyteIds);
+    } catch (e) {
+      setRowError(e instanceof Error ? e.message : "Erro inesperado");
+    } finally {
+      setRowBusy(null);
+    }
+  };
+
+  const deleteRow = async (row: RunRow) => {
+    const runIds = row.runIds.filter((id): id is string => !!id);
+    if (runIds.length === 0) return;
+
+    const ok = confirm(
+      `Deletar a corrida #${row.no} (${runIds.length} valor${runIds.length > 1 ? "es" : ""})? Esta ação não pode ser desfeita.`
+    );
+    if (!ok) return;
+
+    setRowBusy(row.no);
+    setRowError(null);
+    try {
+      const results = await Promise.all(
+        runIds.map((id) => fetch(`/api/runs/${id}`, { method: "DELETE" }))
+      );
+      const failed = results.find((r) => !r.ok);
+      if (failed) {
+        const d = await failed.json().catch(() => ({}));
+        throw new Error(d.error ?? "Erro ao deletar");
+      }
+      await loadPanel(selectedAnalyteIds);
+    } catch (e) {
+      setRowError(e instanceof Error ? e.message : "Erro inesperado");
+    } finally {
+      setRowBusy(null);
+    }
   };
 
   // ── Computed ───────────────────────────────────────────────────────────────
@@ -434,6 +534,12 @@ function PainelControleInner() {
                 <span className="text-white/60 text-xs">{rows.length} total</span>
               </div>
 
+              {rowError && (
+                <div className="px-5 py-2 bg-danger-50 border-b border-danger-200 text-xs text-danger-700">
+                  <strong>Erro:</strong> {rowError}
+                </div>
+              )}
+
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 dark:bg-[#1a1a1a] sticky top-0 z-10">
@@ -489,22 +595,78 @@ function PainelControleInner() {
                           <td className="px-3 py-2.5 text-xs font-semibold text-gray-400">{row.no}</td>
                           <td className="px-3 py-2.5">
                             <div className="flex items-center gap-0.5">
-                              <button className="w-6 h-6 rounded text-gray-400 hover:text-primary-500 hover:bg-primary-50 transition-all flex items-center justify-center">
-                                <span className="material-symbols-outlined text-[14px]">edit</span>
-                              </button>
-                              <button className="w-6 h-6 rounded text-gray-400 hover:text-danger-500 hover:bg-danger-50 transition-all flex items-center justify-center">
-                                <span className="material-symbols-outlined text-[14px]">delete</span>
-                              </button>
+                              {editingRow === row.no ? (
+                                <>
+                                  <button
+                                    onClick={() => saveEdit(row)}
+                                    disabled={rowBusy === row.no}
+                                    title="Salvar"
+                                    className="w-6 h-6 rounded text-success-600 hover:bg-success-50 disabled:opacity-50 transition-all flex items-center justify-center"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px]">
+                                      {rowBusy === row.no ? "progress_activity" : "check"}
+                                    </span>
+                                  </button>
+                                  <button
+                                    onClick={cancelEdit}
+                                    disabled={rowBusy === row.no}
+                                    title="Cancelar"
+                                    className="w-6 h-6 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-50 transition-all flex items-center justify-center"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px]">close</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => startEdit(row)}
+                                    disabled={rowBusy === row.no}
+                                    title="Editar"
+                                    className="w-6 h-6 rounded text-gray-400 hover:text-primary-500 hover:bg-primary-50 disabled:opacity-50 transition-all flex items-center justify-center"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px]">edit</span>
+                                  </button>
+                                  <button
+                                    onClick={() => deleteRow(row)}
+                                    disabled={rowBusy === row.no}
+                                    title="Deletar"
+                                    className="w-6 h-6 rounded text-gray-400 hover:text-danger-500 hover:bg-danger-50 disabled:opacity-50 transition-all flex items-center justify-center"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px]">
+                                      {rowBusy === row.no ? "progress_activity" : "delete"}
+                                    </span>
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                           {analytes.map((a, i) => (
                             <td key={a.id} className={`px-3 py-2.5 text-center font-semibold ${LEVEL_COLORS[i]}`}>
-                              {row.values[i] !== null
-                                ? Number(row.values[i]).toLocaleString("pt-BR", {
-                                    minimumFractionDigits: 3,
-                                    maximumFractionDigits: 3,
-                                  })
-                                : <span className="text-gray-300 font-normal">—</span>}
+                              {editingRow === row.no && row.runIds[i] ? (
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={editValues[i] ?? ""}
+                                  onChange={(e) => {
+                                    const next = [...editValues];
+                                    next[i] = e.target.value;
+                                    setEditValues(next);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") saveEdit(row);
+                                    else if (e.key === "Escape") cancelEdit();
+                                  }}
+                                  autoFocus={i === row.runIds.findIndex((id) => !!id)}
+                                  className="w-full px-2 py-1 rounded border border-primary-300 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+                                />
+                              ) : row.values[i] !== null ? (
+                                Number(row.values[i]).toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 3,
+                                  maximumFractionDigits: 3,
+                                })
+                              ) : (
+                                <span className="text-gray-300 font-normal">—</span>
+                              )}
                             </td>
                           ))}
                           {Array.from({ length: 3 - levelCount }).map((_, i) => (
