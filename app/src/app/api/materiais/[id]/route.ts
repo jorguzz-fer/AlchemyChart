@@ -101,7 +101,29 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await prisma.material.delete({ where: { id } });
+  // Bloqueia exclusão se houver corridas lançadas (via AnalyteMaterial ou Analyte
+  // legado) — preserva o histórico. Usuário deve desativar o material em vez disso.
+  const runCount = await prisma.run.count({
+    where: {
+      OR: [{ analyteMaterial: { materialId: id } }, { analyte: { materialId: id } }],
+    },
+  });
+  if (runCount > 0) {
+    return NextResponse.json(
+      {
+        error: `Não é possível excluir: existem ${runCount} corrida(s) associada(s) a este material. Desative-o para ocultá-lo da lista sem perder o histórico.`,
+      },
+      { status: 409 }
+    );
+  }
+
+  // Sem corridas: remove associações (AnalyteMaterial) e analitos legados deste
+  // material, depois o material. StatPeriods são removidos em cascata pelo Analyte.
+  await prisma.$transaction([
+    prisma.analyteMaterial.deleteMany({ where: { materialId: id } }),
+    prisma.analyte.deleteMany({ where: { materialId: id } }),
+    prisma.material.delete({ where: { id } }),
+  ]);
 
   await logAudit({
     tenantId: session.user.tenantId,

@@ -71,6 +71,12 @@ export default function MaterialEditPage({ params }: { params: Promise<{ id: str
   const [associating, setAssociating] = useState(false);
   const [assocError, setAssocError] = useState<string | null>(null);
 
+  // Inline edit (valores de bula Xm/DP) de uma associação existente
+  const [editingAmId, setEditingAmId] = useState<string | null>(null);
+  const [editXm, setEditXm] = useState("");
+  const [editDP, setEditDP] = useState("");
+  const [savingAm, setSavingAm] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     const [matRes, anRes, eqRes] = await Promise.all([
@@ -191,6 +197,38 @@ export default function MaterialEditPage({ params }: { params: Promise<{ id: str
     } else {
       load();
     }
+  };
+
+  const startEditAm = (am: AnalyteMaterialItem) => {
+    setEditingAmId(am.id);
+    setEditXm(am.manufacturerMean !== null ? String(am.manufacturerMean).replace(".", ",") : "");
+    setEditDP(am.manufacturerSD !== null ? String(am.manufacturerSD).replace(".", ",") : "");
+  };
+
+  const cancelEditAm = () => {
+    setEditingAmId(null);
+    setEditXm("");
+    setEditDP("");
+  };
+
+  const saveEditAm = async (am: AnalyteMaterialItem) => {
+    setSavingAm(true);
+    const res = await fetch(`/api/materiais/${id}/analytes/${am.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        manufacturerMean: editXm.trim() ? editXm.replace(",", ".") : null,
+        manufacturerSD: editDP.trim() ? editDP.replace(",", ".") : null,
+      }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error ?? "Erro ao salvar valores de bula");
+    } else {
+      cancelEditAm();
+      load();
+    }
+    setSavingAm(false);
   };
 
   // Filter analytes by selected equipment
@@ -506,12 +544,14 @@ export default function MaterialEditPage({ params }: { params: Promise<{ id: str
                   <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase text-center">DP</th>
                   <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase text-center">Nível</th>
                   <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase text-center">Status</th>
-                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase text-center w-16">Ações</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase text-center w-24">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {material.analyteMaterials.map((am, i) => (
-                  <tr key={am.id} className="border-t border-gray-100 dark:border-[#1a1a1a] hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-all">
+                {material.analyteMaterials.map((am, i) => {
+                  const isEditing = editingAmId === am.id;
+                  return (
+                  <tr key={am.id} className={`border-t border-gray-100 dark:border-[#1a1a1a] transition-all ${isEditing ? "bg-primary-50/40 dark:bg-primary-900/10" : "hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"}`}>
                     <td className="px-4 py-2.5 text-xs text-gray-400 font-semibold">{i + 1}</td>
                     <td className="px-4 py-2.5 font-medium text-black dark:text-white">
                       {am.analyte.name}
@@ -519,14 +559,35 @@ export default function MaterialEditPage({ params }: { params: Promise<{ id: str
                     </td>
                     <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400 text-xs">{am.equipment.name}</td>
                     <td className="px-4 py-2.5 text-center font-mono">
-                      {am.manufacturerMean !== null
-                        ? am.manufacturerMean.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })
-                        : <span className="text-gray-300">—</span>}
+                      {isEditing ? (
+                        <input
+                          autoFocus
+                          inputMode="decimal"
+                          value={editXm}
+                          onChange={(e) => setEditXm(e.target.value)}
+                          placeholder="0,00"
+                          className="w-20 px-2 py-1 text-sm text-right rounded border border-primary-300 bg-white dark:bg-[#0c0b0b] focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                        />
+                      ) : am.manufacturerMean !== null ? (
+                        am.manufacturerMean.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-center font-mono">
-                      {am.manufacturerSD !== null
-                        ? am.manufacturerSD.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })
-                        : <span className="text-gray-300">—</span>}
+                      {isEditing ? (
+                        <input
+                          inputMode="decimal"
+                          value={editDP}
+                          onChange={(e) => setEditDP(e.target.value)}
+                          placeholder="0,00"
+                          className="w-20 px-2 py-1 text-sm text-right rounded border border-primary-300 bg-white dark:bg-[#0c0b0b] focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                        />
+                      ) : am.manufacturerSD !== null ? (
+                        am.manufacturerSD.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-center">
                       <span className="inline-block px-2 py-0.5 rounded bg-gray-100 dark:bg-[#1a1a1a] text-xs font-semibold">
@@ -548,17 +609,50 @@ export default function MaterialEditPage({ params }: { params: Promise<{ id: str
                     </td>
                     <td className="px-4 py-2.5 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => handleRemoveAssoc(am)}
-                          title={am._count.runs > 0 ? `${am._count.runs} corrida(s) — não pode remover` : "Remover associação"}
-                          className="w-7 h-7 rounded text-gray-400 hover:text-danger-500 hover:bg-danger-50 transition-all flex items-center justify-center"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">delete</span>
-                        </button>
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={() => saveEditAm(am)}
+                              disabled={savingAm}
+                              title="Salvar valores de bula"
+                              className="w-7 h-7 rounded text-success-600 hover:bg-success-50 transition-all flex items-center justify-center disabled:opacity-50"
+                            >
+                              <span className={`material-symbols-outlined text-[16px] ${savingAm ? "animate-spin" : ""}`}>
+                                {savingAm ? "progress_activity" : "check"}
+                              </span>
+                            </button>
+                            <button
+                              onClick={cancelEditAm}
+                              disabled={savingAm}
+                              title="Cancelar"
+                              className="w-7 h-7 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-all flex items-center justify-center disabled:opacity-50"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">close</span>
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => startEditAm(am)}
+                              title="Editar valores de bula (Xm/DP)"
+                              className="w-7 h-7 rounded text-gray-400 hover:text-primary-500 hover:bg-primary-50 transition-all flex items-center justify-center"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleRemoveAssoc(am)}
+                              title={am._count.runs > 0 ? `${am._count.runs} corrida(s) — não pode remover` : "Remover associação"}
+                              className="w-7 h-7 rounded text-gray-400 hover:text-danger-500 hover:bg-danger-50 transition-all flex items-center justify-center"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

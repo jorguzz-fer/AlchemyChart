@@ -45,11 +45,13 @@ export default function MateriaisPage() {
   const [items, setItems] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<Material | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -105,11 +107,31 @@ export default function MateriaisPage() {
     fetchItems();
   };
 
-  const filtered = items.filter(
-    (i) =>
-      i.name.toLowerCase().includes(search.toLowerCase()) ||
-      (i.lot ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  const handleDelete = async (item: Material) => {
+    if (
+      !confirm(
+        `Excluir o material "${item.name}"${item.lot ? ` (lote ${item.lot})` : ""}?\n\nEsta ação é permanente e remove também os analitos associados sem corridas.`
+      )
+    )
+      return;
+    setDeletingId(item.id);
+    const res = await fetch(`/api/materiais/${item.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error ?? "Erro ao excluir material");
+    } else {
+      fetchItems();
+    }
+    setDeletingId(null);
+  };
+
+  const filtered = items.filter((i) => {
+    if (!showInactive && !i.active) return false;
+    const q = search.toLowerCase();
+    return (
+      i.name.toLowerCase().includes(q) || (i.lot ?? "").toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -130,8 +152,8 @@ export default function MateriaisPage() {
       </div>
 
       <div className="bg-white dark:bg-[#141414] rounded-2xl border border-gray-100 dark:border-[#1a1a1a] overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-[#1a1a1a]">
-          <div className="relative max-w-sm">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-[#1a1a1a] flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+          <div className="relative max-w-sm w-full">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[18px]">
               search
             </span>
@@ -143,6 +165,15 @@ export default function MateriaisPage() {
               className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-[#1a1a1a] bg-gray-50 dark:bg-[#0c0b0b] focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
             />
           </div>
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+            />
+            Mostrar inativos
+          </label>
         </div>
 
         {loading ? (
@@ -248,6 +279,16 @@ export default function MateriaisPage() {
                           >
                             <span className="material-symbols-outlined text-[18px]">
                               {item.active ? "block" : "check_circle"}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item)}
+                            disabled={deletingId === item.id}
+                            title="Excluir material"
+                            className="w-8 h-8 rounded-lg text-gray-500 hover:bg-danger-50 hover:text-danger-500 transition-all flex items-center justify-center disabled:opacity-50"
+                          >
+                            <span className={`material-symbols-outlined text-[18px] ${deletingId === item.id ? "animate-spin" : ""}`}>
+                              {deletingId === item.id ? "progress_activity" : "delete"}
                             </span>
                           </button>
                         </div>
