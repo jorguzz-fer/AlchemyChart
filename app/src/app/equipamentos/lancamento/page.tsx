@@ -51,6 +51,7 @@ interface ConditionGroup {
   materialId: string;
   hasStats: boolean; // true = Ativo, false = Preparo
   levels: [LevelEntry | null, LevelEntry | null, LevelEntry | null];
+  note: string; // observação aplicada a todos os níveis lançados desta linha
 }
 
 interface AnalyteGroup {
@@ -216,9 +217,9 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
 
     const conditions: ConditionGroup[] = [];
     if (isAtivo) {
-      conditions.push({ materialId: "ativo", hasStats: true, levels: ativoArr });
+      conditions.push({ materialId: "ativo", hasStats: true, levels: ativoArr, note: "" });
     }
-    conditions.push({ materialId: "preparo", hasStats: false, levels: preparoArr });
+    conditions.push({ materialId: "preparo", hasStats: false, levels: preparoArr, note: "" });
 
     result.push({ name, unit, conditions });
   }
@@ -337,13 +338,27 @@ function LancamentoInner() {
     );
   };
 
+  const updateNote = (gi: number, ci: number, value: string) => {
+    setGroups((prev) =>
+      prev.map((g, gIdx) => {
+        if (gIdx !== gi) return g;
+        return {
+          ...g,
+          conditions: g.conditions.map((c, cIdx) =>
+            cIdx !== ci ? c : { ...c, note: value }
+          ),
+        };
+      })
+    );
+  };
+
   const handleSubmit = async () => {
-    type SaveItem = { gi: number; ci: number; li: number; entry: LevelEntry };
+    type SaveItem = { gi: number; ci: number; li: number; entry: LevelEntry; note: string };
     const toSave: SaveItem[] = [];
     groups.forEach((g, gi) =>
       g.conditions.forEach((c, ci) =>
         c.levels.forEach((e, li) => {
-          if (e && e.value.trim() !== "") toSave.push({ gi, ci, li, entry: e });
+          if (e && e.value.trim() !== "") toSave.push({ gi, ci, li, entry: e, note: c.note });
         })
       )
     );
@@ -364,7 +379,7 @@ function LancamentoInner() {
     );
 
     const results = await Promise.allSettled(
-      toSave.map(({ entry }) =>
+      toSave.map(({ entry, note }) =>
         fetch("/api/runs", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -373,6 +388,7 @@ function LancamentoInner() {
             analyteMaterialId: entry.analyteMaterialId,
             level: entry.level,
             value: parseFloat(entry.value.replace(",", ".")),
+            note: note.trim() || undefined,
           }),
         }).then(async (r) => {
           const body = await r.json().catch(() => ({}));
@@ -415,6 +431,7 @@ function LancamentoInner() {
         ...g,
         conditions: g.conditions.map((c) => ({
           ...c,
+          note: "",
           levels: c.levels.map((e) => (e ? { ...e, value: "", status: "idle" as RunStatus, violations: [] } : e)) as ConditionGroup["levels"],
         })),
       }))
@@ -492,6 +509,9 @@ function LancamentoInner() {
                       </th>
                     ) : null
                   )}
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[180px]">
+                    Observação
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -633,6 +653,18 @@ function LancamentoInner() {
                             </td>
                           );
                         })}
+
+                        {/* Observação — aplicada a todos os níveis lançados desta linha */}
+                        <td className="px-3 py-3 align-top">
+                          <input
+                            type="text"
+                            value={cond.note}
+                            onChange={(e) => updateNote(gi, ci, e.target.value)}
+                            placeholder="Intercorrência / observação"
+                            title="Observação registrada em todas as corridas lançadas nesta linha"
+                            className="w-full px-3 py-1.5 rounded-lg border border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#0c0b0b] text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-colors"
+                          />
+                        </td>
                       </tr>
                     );
                   })
