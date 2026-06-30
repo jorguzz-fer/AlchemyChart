@@ -91,6 +91,10 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
     hasPromo: boolean;
   };
   const map = new Map<string, Item>();
+  // Níveis realmente em uso neste equipamento (união dos níveis configurados).
+  // Usado para padding e para decidir quais colunas exibir (níveis não usados
+  // somem automaticamente — ex.: laboratório que só usa N1 e N2).
+  const usedLevels = new Set<number>();
 
   for (const a of list) {
     if (a.active === false) continue;
@@ -118,6 +122,7 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
     const levelsToProcess = new Set<number>();
     for (const am of ams) levelsToProcess.add(am.level);
     if (levelsToProcess.size === 0) levelsToProcess.add(a.level);
+    for (const l of levelsToProcess) usedLevels.add(l);
 
     for (const level of levelsToProcess) {
       const amsAtLevel = ams.filter((m) => m.level === level);
@@ -153,13 +158,14 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
     }
   }
 
-  // Para cada analito do mapa, garante que TODOS os níveis (1, 2, 3) tenham
-  // info no Preparo — se faltar, gera um placeholder usando dados de outro
-  // nível existente. Backend auto-cria o AM quando o usuário lançar valor.
+  // Para cada analito do mapa, garante que TODOS os níveis EM USO (usedLevels)
+  // tenham info — se faltar, gera um placeholder usando dados de outro nível
+  // existente. Backend auto-cria o AM quando o usuário lançar valor. Níveis
+  // que ninguém configurou ficam de fora (não viram coluna).
   for (const item of map.values()) {
     const anyLevel = Array.from(item.levels.values())[0];
     if (!anyLevel) continue;
-    for (const lvl of [1, 2, 3]) {
+    for (const lvl of usedLevels) {
       if (!item.levels.has(lvl)) {
         item.levels.set(lvl, {
           analyteId: anyLevel.analyteId,
@@ -444,8 +450,12 @@ function LancamentoInner() {
   );
   const selectedEquip = equipments.find((e) => e.id === selectedEquipId);
 
-  // Sempre exibe as 3 colunas de nível (células cinzas = não configurado)
-  const activeLevels: [boolean, boolean, boolean] = [true, true, true];
+  // Exibe apenas as colunas de nível realmente em uso. Um nível é "ativo" se
+  // qualquer analito carregado tem entrada nele — níveis nunca configurados
+  // (ex.: N3 num laboratório que só usa 2) somem automaticamente.
+  const activeLevels: [boolean, boolean, boolean] = [0, 1, 2].map((i) =>
+    groups.some((g) => g.conditions.some((c) => c.levels[i] != null))
+  ) as [boolean, boolean, boolean];
 
   let inputCounter = 0;
 

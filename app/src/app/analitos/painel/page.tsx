@@ -372,16 +372,16 @@ function PainelControleInner() {
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // Slots fixos para níveis 1, 2, 3 — referencia o analyte correspondente
-  // ou null se aquele nível não estiver configurado. Garante ordem estável
-  // mesmo quando faltam níveis legados (ex: analito tem só level=2).
-  type LevelSlot = { analyte: AnalyteRaw; analyteIdx: number } | null;
-  const levelSlots: [LevelSlot, LevelSlot, LevelSlot] = useMemo(() => {
-    const find = (level: number): LevelSlot => {
+  // Slots APENAS para os níveis realmente configurados (carrega o nº do nível).
+  // Níveis nunca usados (ex: N3 num laboratório que só usa 2) não viram coluna.
+  type LevelSlot = { analyte: AnalyteRaw; analyteIdx: number; level: number };
+  const levelSlots: LevelSlot[] = useMemo(() => {
+    const slots: LevelSlot[] = [];
+    for (const level of [1, 2, 3]) {
       const idx = analytes.findIndex((a) => a.level === level);
-      return idx >= 0 ? { analyte: analytes[idx], analyteIdx: idx } : null;
-    };
-    return [find(1), find(2), find(3)];
+      if (idx >= 0) slots.push({ analyte: analytes[idx], analyteIdx: idx, level });
+    }
+    return slots;
   }, [analytes]);
 
   const allChartValues = rows
@@ -557,18 +557,8 @@ function PainelControleInner() {
                     <tr>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 w-10">#</th>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 w-14">Editar</th>
-                      {levelSlots.map((slot, idx) => {
-                        const level = idx + 1;
-                        if (!slot) {
-                          return (
-                            <th key={`lvl-${level}`} className="px-3 py-3 text-center text-xs font-semibold text-gray-300 min-w-[80px]">
-                              <div className="flex items-center justify-center gap-1.5">
-                                <input type="checkbox" readOnly checked={false} onChange={() => {}} className="w-3.5 h-3.5 rounded border-gray-300 cursor-default" />
-                                <span>Nível {level}</span>
-                              </div>
-                            </th>
-                          );
-                        }
+                      {levelSlots.map((slot) => {
+                        const level = slot.level;
                         const a = slot.analyte;
                         return (
                           <th key={`lvl-${level}`} className="px-3 py-3 text-center text-xs font-semibold min-w-[90px]">
@@ -656,18 +646,11 @@ function PainelControleInner() {
                               )}
                             </div>
                           </td>
-                          {levelSlots.map((slot, idx) => {
-                            const level = idx + 1;
-                            if (!slot) {
-                              return (
-                                <td key={`lvl-${level}`} className="px-3 py-2.5 text-center">
-                                  <span className="text-[10px] text-gray-300 italic">Mat. Desabilitado</span>
-                                </td>
-                              );
-                            }
+                          {levelSlots.map((slot) => {
+                            const level = slot.level;
                             const i = slot.analyteIdx;
                             return (
-                              <td key={`lvl-${level}`} className={`px-3 py-2.5 text-center font-semibold ${LEVEL_COLORS[idx]}`}>
+                              <td key={`lvl-${level}`} className={`px-3 py-2.5 text-center font-semibold ${LEVEL_COLORS[slot.level - 1]}`}>
                                 {editingRow === row.no && row.runIds[i] ? (
                                   <input
                                     type="text"
@@ -727,15 +710,8 @@ function PainelControleInner() {
                     <tr className="border-t-2 border-primary-200 dark:border-primary-800 bg-primary-50/30 dark:bg-primary-900/10">
                       <td className="px-3 py-2.5 text-xs font-semibold text-gray-400">{rows.length + 1}</td>
                       <td />
-                      {levelSlots.map((slot, idx) => {
-                        const level = idx + 1;
-                        if (!slot) {
-                          return (
-                            <td key={`lvl-${level}`} className="px-3 py-2 text-center">
-                              <span className="text-[10px] text-gray-300 italic">Mat. Desabilitado</span>
-                            </td>
-                          );
-                        }
+                      {levelSlots.map((slot) => {
+                        const level = slot.level;
                         const i = slot.analyteIdx;
                         return (
                           <td key={`lvl-${level}`} className="px-3 py-2">
@@ -852,19 +828,14 @@ function PainelControleInner() {
                     <thead className="bg-gray-50 dark:bg-[#0c0b0b]">
                       <tr>
                         <th className="px-3 py-2 text-left text-gray-400 font-semibold w-16">#</th>
-                        {levelSlots.map((slot, idx) => {
-                          const level = idx + 1;
-                          return (
-                            <th
-                              key={`lvl-${level}`}
-                              className={`px-3 py-2 text-center font-semibold ${
-                                slot ? "text-gray-600 dark:text-gray-400" : "text-gray-300"
-                              }`}
-                            >
-                              Nível {level}
-                            </th>
-                          );
-                        })}
+                        {levelSlots.map((slot) => (
+                          <th
+                            key={`lvl-${slot.level}`}
+                            className="px-3 py-2 text-center font-semibold text-gray-600 dark:text-gray-400"
+                          >
+                            Nível {slot.level}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
@@ -874,9 +845,9 @@ function PainelControleInner() {
                           <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>Uso</span>
                         </td>
                         <td className="px-3 py-2 text-gray-500">Média</td>
-                        {levelSlots.map((slot, idx) => {
-                          const level = idx + 1;
-                          const v = slot ? painelData.stats[slot.analyteIdx]?.statPeriod?.mean ?? null : null;
+                        {levelSlots.map((slot) => {
+                          const level = slot.level;
+                          const v = painelData.stats[slot.analyteIdx]?.statPeriod?.mean ?? null;
                           return (
                             <td key={`lvl-${level}`} className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
                               {v !== null ? v.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : <span className="text-gray-300">—</span>}
@@ -886,9 +857,9 @@ function PainelControleInner() {
                       </tr>
                       <tr className="border-t border-gray-100 dark:border-[#1a1a1a]">
                         <td className="px-3 py-2 text-gray-500">Desvio Padrão</td>
-                        {levelSlots.map((slot, idx) => {
-                          const level = idx + 1;
-                          const v = slot ? painelData.stats[slot.analyteIdx]?.statPeriod?.sd ?? null : null;
+                        {levelSlots.map((slot) => {
+                          const level = slot.level;
+                          const v = painelData.stats[slot.analyteIdx]?.statPeriod?.sd ?? null;
                           return (
                             <td key={`lvl-${level}`} className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
                               {v !== null ? v.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : <span className="text-gray-300">—</span>}
@@ -910,9 +881,9 @@ function PainelControleInner() {
                             </td>
                           )}
                           <td className="px-3 py-2 text-gray-500">{row.label}</td>
-                          {levelSlots.map((slot, idx) => {
-                            const level = idx + 1;
-                            const v = slot ? painelData.stats[slot.analyteIdx]?.currentStats?.[row.key] ?? null : null;
+                          {levelSlots.map((slot) => {
+                            const level = slot.level;
+                            const v = painelData.stats[slot.analyteIdx]?.currentStats?.[row.key] ?? null;
                             if (v === null) return <td key={`lvl-${level}`} className="px-3 py-2 text-center text-gray-300">—</td>;
                             if (row.key === "cv") {
                               const bad = (v as number) > 5;

@@ -69,6 +69,18 @@ export default function MateriaisPage() {
     setShowModal(true);
   };
 
+  const openEdit = (item: Material) => {
+    setEditItem(item);
+    setForm({
+      name: item.name,
+      lot: item.lot ?? "",
+      generation: item.generation ?? "",
+      expiresAt: item.expiresAt ? item.expiresAt.slice(0, 10) : "",
+    });
+    setError(null);
+    setShowModal(true);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -125,6 +137,8 @@ export default function MateriaisPage() {
     setDeletingId(null);
   };
 
+  // Por padrão oculta inativos — ao desativar, o material some da lista.
+  // O toggle "Mostrar inativos" reexibe para reativar/consultar.
   const filtered = items.filter((i) => {
     if (!showInactive && !i.active) return false;
     const q = search.toLowerCase();
@@ -132,6 +146,7 @@ export default function MateriaisPage() {
       i.name.toLowerCase().includes(q) || (i.lot ?? "").toLowerCase().includes(q)
     );
   });
+  const inactiveCount = items.filter((i) => !i.active).length;
 
   return (
     <div className="space-y-6">
@@ -165,7 +180,7 @@ export default function MateriaisPage() {
               className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-[#1a1a1a] bg-gray-50 dark:bg-[#0c0b0b] focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
             />
           </div>
-          <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap select-none">
             <input
               type="checkbox"
               checked={showInactive}
@@ -173,6 +188,11 @@ export default function MateriaisPage() {
               className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
             />
             Mostrar inativos
+            {inactiveCount > 0 && (
+              <span className="text-xs bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 px-1.5 py-0.5 rounded-full">
+                {inactiveCount}
+              </span>
+            )}
           </label>
         </div>
 
@@ -261,12 +281,19 @@ export default function MateriaisPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-1">
-                          <Link
-                            href={`/materiais/${item.id}`}
-                            title="Editar"
+                          <button
+                            onClick={() => openEdit(item)}
+                            title="Editar dados do material"
                             className="w-8 h-8 rounded-lg text-gray-500 hover:bg-primary-50 hover:text-primary-500 transition-all flex items-center justify-center"
                           >
                             <span className="material-symbols-outlined text-[18px]">edit</span>
+                          </button>
+                          <Link
+                            href={`/materiais/${item.id}`}
+                            title="Analitos associados e valores de bula"
+                            className="w-8 h-8 rounded-lg text-gray-500 hover:bg-primary-50 hover:text-primary-500 transition-all flex items-center justify-center"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">open_in_new</span>
                           </Link>
                           <button
                             onClick={() => handleToggleActive(item)}
