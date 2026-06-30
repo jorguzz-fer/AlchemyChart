@@ -4,6 +4,7 @@ import { calculateStats } from "@/lib/stats";
 import { NextResponse } from "next/server";
 import { requireRole, ROLES_WRITE } from "@/lib/authz";
 import { logAudit, getClientIp } from "@/lib/audit";
+import { sendControlAlert } from "@/lib/email";
 
 const SETUP_THRESHOLD = 20; // runs needed to establish StatPeriod
 
@@ -22,6 +23,7 @@ export async function POST(req: Request) {
   const analyte = await prisma.analyte.findFirst({
     where: { id: analyteId, unitRel: { tenantId: session.user.tenantId } },
     include: {
+      equipment: { select: { name: true } },
       analyteMaterials: { include: { material: { select: { id: true, name: true } } } },
     },
   });
@@ -142,6 +144,42 @@ export async function POST(req: Request) {
     },
     ip: getClientIp(req),
   });
+
+  // Notifica supervisores + admins por e-mail quando o lançamento viola Westgard.
+  // Best-effort: nunca quebra o registro da corrida se o e-mail falhar.
+  if (status === "ALERT" || status === "REJECT") {
+    try {
+      const recipients = await prisma.user.findMany({
+        where: {
+          tenantId: session.user.tenantId,
+          active: true,
+          role: { in: ["SUPERVISOR", "ADMIN", "SUPERADMIN"] },
+        },
+        select: { email: true },
+      });
+      const to = recipients.map((r) => r.email).filter((e): e is string => !!e);
+      if (to.length > 0) {
+        const resolvedAm = analyte.analyteMaterials.find((am) => am.id === analyteMaterialId);
+        const displayLevel = targetLevel ?? resolvedAm?.level ?? analyte.level;
+        await sendControlAlert({
+          to,
+          analyteName: analyte.name,
+          unit: analyte.unit,
+          level: displayLevel,
+          equipmentName: analyte.equipment?.name ?? "—",
+          value: numValue,
+          status,
+          violations,
+          analystName: run.user?.name ?? null,
+          runAt: run.runAt,
+          mean: statPeriod?.mean ?? null,
+          sd: statPeriod?.sd ?? null,
+        });
+      }
+    } catch (e) {
+      console.error("[runs] Falha ao notificar supervisores:", e);
+    }
+  }
 
   return NextResponse.json(run, { status: 201 });
 }
