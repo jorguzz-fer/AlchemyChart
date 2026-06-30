@@ -3,6 +3,7 @@
 import LeveyJenningsChart from "@/components/LeveyJenningsChart";
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   parseWestgardRules,
   WESTGARD_RULE_KEYS,
@@ -36,6 +37,8 @@ interface RunRow {
 interface LevelStats {
   statPeriod: { mean: number; sd: number; cv: number; n: number } | null;
   currentStats: { mean: number; sd: number; cv: number; n: number } | null;
+  manualTarget: { mean: number; sd: number } | null;
+  groupKey: string;
 }
 
 interface PainelData {
@@ -139,6 +142,17 @@ function PainelControleInner() {
   const [editValues, setEditValues] = useState<string[]>(["", "", ""]);
   const [rowBusy, setRowBusy] = useState<number | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
+
+  // Média-alvo manual (por nível)
+  const { data: session } = useSession();
+  const canManage = ["SUPERADMIN", "ADMIN", "SUPERVISOR"].includes(
+    (session?.user as { role?: string } | undefined)?.role ?? ""
+  );
+  const [targetEditLevel, setTargetEditLevel] = useState<number | null>(null);
+  const [targetMean, setTargetMean] = useState("");
+  const [targetSd, setTargetSd] = useState("");
+  const [targetBusy, setTargetBusy] = useState(false);
+  const [targetError, setTargetError] = useState<string | null>(null);
 
   // ── Load analytes ──────────────────────────────────────────────────────────
 
@@ -384,14 +398,58 @@ function PainelControleInner() {
     return slots;
   }, [analytes]);
 
+  // ── Média-alvo manual: handlers ────────────────────────────────────────────
+  const startTargetEdit = (level: number, current: { mean: number; sd: number } | null) => {
+    setTargetEditLevel(level);
+    setTargetMean(current ? String(current.mean).replace(".", ",") : "");
+    setTargetSd(current ? String(current.sd).replace(".", ",") : "");
+    setTargetError(null);
+  };
+  const cancelTargetEdit = () => {
+    setTargetEditLevel(null);
+    setTargetError(null);
+  };
+  const saveTarget = async (analyteIdx: number) => {
+    const analyteId = analytes[analyteIdx]?.id;
+    if (!analyteId) return;
+    setTargetBusy(true);
+    setTargetError(null);
+    const res = await fetch("/api/control-targets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ analyteId, mean: targetMean, sd: targetSd }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setTargetError(d.error ?? "Erro ao salvar");
+    } else {
+      setTargetEditLevel(null);
+      await loadPanel(selectedAnalyteIds);
+    }
+    setTargetBusy(false);
+  };
+  const clearTarget = async (analyteIdx: number) => {
+    const analyteId = analytes[analyteIdx]?.id;
+    if (!analyteId) return;
+    if (!confirm("Remover a média-alvo manual e voltar ao cálculo automático (Uso)?")) return;
+    setTargetBusy(true);
+    setTargetError(null);
+    const res = await fetch(`/api/control-targets?analyteId=${analyteId}`, { method: "DELETE" });
+    if (res.ok) await loadPanel(selectedAnalyteIds);
+    setTargetBusy(false);
+  };
+
   const allChartValues = rows
     .map((r) => r.values[chartLevelIdx])
     .filter((v): v is number => v !== null);
   // Toggle "Último": mostra apenas últimas 20 corridas (janela típica de Westgard)
   const chartValues = valoresUltimo ? allChartValues.slice(-20) : allChartValues;
   const chartStat = painelData?.stats[chartLevelIdx];
-  const chartMean = chartStat?.statPeriod?.mean ?? chartStat?.currentStats?.mean ?? 0;
-  const chartSd = chartStat?.statPeriod?.sd ?? chartStat?.currentStats?.sd ?? 1;
+  // Alvo manual (do grupo) tem prioridade como centro do gráfico
+  const chartMean =
+    chartStat?.manualTarget?.mean ?? chartStat?.statPeriod?.mean ?? chartStat?.currentStats?.mean ?? 0;
+  const chartSd =
+    chartStat?.manualTarget?.sd ?? chartStat?.statPeriod?.sd ?? chartStat?.currentStats?.sd ?? 1;
 
   const isSetupPhase = !painelData || painelData.stats.every((s) => !s.statPeriod);
 
@@ -905,6 +963,112 @@ function PainelControleInner() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Média-alvo manual — compartilhada pelo grupo de equipamentos */}
+                <div className="border-t border-gray-100 dark:border-[#1a1a1a] p-4">
+                  <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                    <h4 className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                      Média-alvo manual
+                    </h4>
+                    {painelData.stats[0]?.groupKey && (
+                      <span className="text-[11px] text-gray-400">
+                        Grupo{" "}
+                        <span className="font-semibold text-gray-500">{painelData.stats[0].groupKey}</span>{" "}
+                        · vale para equipamentos do mesmo grupo
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    {levelSlots.map((slot) => {
+                      const st = painelData.stats[slot.analyteIdx];
+                      const mt = st?.manualTarget ?? null;
+                      const editing = targetEditLevel === slot.level;
+                      const fmt = (n: number) =>
+                        n.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+                      return (
+                        <div key={`tgt-${slot.level}`} className="flex items-center gap-2 text-xs flex-wrap">
+                          <span className="font-semibold text-gray-500 w-16 shrink-0">Nível {slot.level}</span>
+                          {editing ? (
+                            <>
+                              <input
+                                inputMode="decimal"
+                                value={targetMean}
+                                onChange={(e) => setTargetMean(e.target.value)}
+                                placeholder="Média"
+                                className="w-24 px-2 py-1 rounded-lg border border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#0c0b0b] text-xs text-center focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+                              />
+                              <input
+                                inputMode="decimal"
+                                value={targetSd}
+                                onChange={(e) => setTargetSd(e.target.value)}
+                                placeholder="DP"
+                                className="w-24 px-2 py-1 rounded-lg border border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#0c0b0b] text-xs text-center focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+                              />
+                              <button
+                                onClick={() => saveTarget(slot.analyteIdx)}
+                                disabled={targetBusy}
+                                className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-white bg-success-600 hover:bg-success-700 disabled:opacity-50"
+                              >
+                                Salvar
+                              </button>
+                              <button
+                                onClick={cancelTargetEdit}
+                                disabled={targetBusy}
+                                className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-[#1a1a1a]"
+                              >
+                                Cancelar
+                              </button>
+                            </>
+                          ) : mt ? (
+                            <>
+                              <span className="font-mono text-gray-700 dark:text-gray-300">
+                                {fmt(mt.mean)} / {fmt(mt.sd)}
+                              </span>
+                              <span className="text-[9px] font-bold uppercase tracking-wide bg-warning-50 text-warning-700 px-1.5 py-0.5 rounded-full">
+                                manual
+                              </span>
+                              {canManage && (
+                                <>
+                                  <button
+                                    onClick={() => startTargetEdit(slot.level, mt)}
+                                    className="px-2 py-0.5 rounded text-[11px] font-semibold text-primary-600 hover:bg-primary-50"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    onClick={() => clearTarget(slot.analyteIdx)}
+                                    disabled={targetBusy}
+                                    className="px-2 py-0.5 rounded text-[11px] font-semibold text-danger-600 hover:bg-danger-50 disabled:opacity-50"
+                                  >
+                                    Limpar
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-gray-400 italic">Automático (Uso)</span>
+                              {canManage && (
+                                <button
+                                  onClick={() => startTargetEdit(slot.level, null)}
+                                  className="px-2 py-0.5 rounded text-[11px] font-semibold text-primary-600 hover:bg-primary-50"
+                                >
+                                  Definir
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {targetError && <p className="text-[11px] text-danger-600 mt-1.5">{targetError}</p>}
+                  {!canManage && (
+                    <p className="text-[11px] text-gray-400 mt-1.5">
+                      Apenas supervisores/administradores podem definir a média-alvo.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

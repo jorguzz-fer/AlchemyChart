@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { calculateStats } from "@/lib/stats";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/authz";
+import { equipmentGroupKey } from "@/lib/equipment-group";
 
 export async function GET(req: Request) {
   const { session, error } = await requireAuth();
@@ -27,8 +28,8 @@ export async function GET(req: Request) {
 
   if (analytes.length === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Fetch runs + stat periods for each analyte in parallel
-  const [runsByAnalyte, statPeriods] = await Promise.all([
+  // Fetch runs + stat periods + alvos manuais para cada analito em paralelo
+  const [runsByAnalyte, statPeriods, manualTargets] = await Promise.all([
     Promise.all(
       analytes.map((a) =>
         prisma.run.findMany({
@@ -46,6 +47,20 @@ export async function GET(req: Request) {
         })
       )
     ),
+    Promise.all(
+      analytes.map((a) =>
+        prisma.controlTarget.findUnique({
+          where: {
+            tenantId_groupKey_analyteName_level: {
+              tenantId: session.user.tenantId,
+              groupKey: equipmentGroupKey(a.equipment?.name ?? ""),
+              analyteName: a.name,
+              level: a.level,
+            },
+          },
+        })
+      )
+    ),
   ]);
 
   const maxRuns = Math.max(...runsByAnalyte.map((r) => r.length), 0);
@@ -60,7 +75,7 @@ export async function GET(req: Request) {
     runAt: analytes.map((_, ai) => runsByAnalyte[ai][i]?.runAt?.toISOString() ?? null),
   }));
 
-  const stats = analytes.map((_, i) => ({
+  const stats = analytes.map((a, i) => ({
     statPeriod: statPeriods[i]
       ? {
           mean: statPeriods[i]!.mean,
@@ -70,6 +85,10 @@ export async function GET(req: Request) {
         }
       : null,
     currentStats: calculateStats(runsByAnalyte[i].map((r) => r.value)),
+    manualTarget: manualTargets[i]
+      ? { mean: manualTargets[i]!.mean, sd: manualTargets[i]!.sd }
+      : null,
+    groupKey: equipmentGroupKey(a.equipment?.name ?? ""),
   }));
 
   return NextResponse.json({ analytes, rows, stats, total: maxRuns });

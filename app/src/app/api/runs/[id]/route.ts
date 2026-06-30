@@ -4,6 +4,7 @@ import { requireRole, ROLES_WRITE, ROLES_MANAGE } from "@/lib/authz";
 import { logAudit, getClientIp } from "@/lib/audit";
 import { checkWestgard } from "@/lib/westgard";
 import { calculateStats } from "@/lib/stats";
+import { equipmentGroupKey } from "@/lib/equipment-group";
 
 const SETUP_THRESHOLD = 20;
 
@@ -18,7 +19,13 @@ async function recomputeAnalyteStats(analyteId: string) {
 
   const analyte = await prisma.analyte.findUnique({
     where: { id: analyteId },
-    select: { westgardRules: true },
+    select: {
+      westgardRules: true,
+      name: true,
+      level: true,
+      unitRel: { select: { tenantId: true } },
+      equipment: { select: { name: true } },
+    },
   });
 
   // Atualiza StatPeriod USO se atingiu threshold
@@ -47,7 +54,8 @@ async function recomputeAnalyteStats(analyteId: string) {
     await prisma.statPeriod.delete({ where: { id: existingStat.id } });
   }
 
-  // Recomputa Westgard de cada corrida
+  // Recomputa Westgard de cada corrida.
+  // Alvo manual do grupo (ControlTarget) tem prioridade sobre a StatPeriod "USO".
   const statForCheck =
     runs.length >= SETUP_THRESHOLD
       ? await prisma.statPeriod.findFirst({
@@ -56,17 +64,33 @@ async function recomputeAnalyteStats(analyteId: string) {
         })
       : null;
 
+  const manualTarget = analyte
+    ? await prisma.controlTarget.findUnique({
+        where: {
+          tenantId_groupKey_analyteName_level: {
+            tenantId: analyte.unitRel.tenantId,
+            groupKey: equipmentGroupKey(analyte.equipment?.name ?? ""),
+            analyteName: analyte.name,
+            level: analyte.level,
+          },
+        },
+      })
+    : null;
+
+  const centerMean = manualTarget?.mean ?? (statForCheck ? statForCheck.mean : null);
+  const centerSd = manualTarget?.sd ?? (statForCheck ? statForCheck.sd : null);
+
   for (let i = 0; i < runs.length; i++) {
     const run = runs[i];
     const history = runs.slice(0, i).map((r) => r.value);
     let status: "OK" | "ALERT" | "REJECT" = "OK";
     let violations: string[] = [];
 
-    if (statForCheck && statForCheck.n >= SETUP_THRESHOLD) {
+    if (centerMean != null && centerSd != null) {
       const result = checkWestgard(
         run.value,
-        statForCheck.mean,
-        statForCheck.sd,
+        centerMean,
+        centerSd,
         history,
         analyte?.westgardRules ?? null
       );

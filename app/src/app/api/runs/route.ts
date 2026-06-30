@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { requireRole, ROLES_WRITE } from "@/lib/authz";
 import { logAudit, getClientIp } from "@/lib/audit";
 import { sendControlAlert } from "@/lib/email";
+import { equipmentGroupKey } from "@/lib/equipment-group";
 
 const SETUP_THRESHOLD = 20; // runs needed to establish StatPeriod
 
@@ -77,18 +78,43 @@ export async function POST(req: Request) {
     orderBy: { createdAt: "desc" },
   });
 
+  // Nível efetivo da corrida (para alvo manual e exibição no alerta)
+  const runLevel =
+    targetLevel ??
+    analyte.analyteMaterials.find((am) => am.id === analyteMaterialId)?.level ??
+    analyte.level;
+
+  // Alvo manual do grupo (ControlTarget) — média/DP fixada que vale para os
+  // equipamentos do par. Tem prioridade sobre a StatPeriod "USO" calculada.
+  const groupKey = equipmentGroupKey(analyte.equipment?.name ?? "");
+  const manualTarget = await prisma.controlTarget.findUnique({
+    where: {
+      tenantId_groupKey_analyteName_level: {
+        tenantId: session.user.tenantId,
+        groupKey,
+        analyteName: analyte.name,
+        level: runLevel,
+      },
+    },
+  });
+
+  // Centro/referência para Westgard: manual vale na hora; senão a "USO" após 20 corridas
+  let centerMean: number | null = null;
+  let centerSd: number | null = null;
+  if (manualTarget) {
+    centerMean = manualTarget.mean;
+    centerSd = manualTarget.sd;
+  } else if (statPeriod && statPeriod.n >= SETUP_THRESHOLD) {
+    centerMean = statPeriod.mean;
+    centerSd = statPeriod.sd;
+  }
+
   let status: "OK" | "ALERT" | "REJECT" = "OK";
   let violations: string[] = [];
 
-  if (statPeriod && statPeriod.n >= SETUP_THRESHOLD) {
+  if (centerMean != null && centerSd != null) {
     // Passa westgardRules do analito — se null, checkWestgard usa DEFAULT_WESTGARD_RULES
-    const result = checkWestgard(
-      numValue,
-      statPeriod.mean,
-      statPeriod.sd,
-      history,
-      analyte.westgardRules
-    );
+    const result = checkWestgard(numValue, centerMean, centerSd, history, analyte.westgardRules);
     status = result.status;
     violations = result.violations;
   }
@@ -159,21 +185,19 @@ export async function POST(req: Request) {
       });
       const to = recipients.map((r) => r.email).filter((e): e is string => !!e);
       if (to.length > 0) {
-        const resolvedAm = analyte.analyteMaterials.find((am) => am.id === analyteMaterialId);
-        const displayLevel = targetLevel ?? resolvedAm?.level ?? analyte.level;
         await sendControlAlert({
           to,
           analyteName: analyte.name,
           unit: analyte.unit,
-          level: displayLevel,
+          level: runLevel,
           equipmentName: analyte.equipment?.name ?? "—",
           value: numValue,
           status,
           violations,
           analystName: run.user?.name ?? null,
           runAt: run.runAt,
-          mean: statPeriod?.mean ?? null,
-          sd: statPeriod?.sd ?? null,
+          mean: centerMean,
+          sd: centerSd,
         });
       }
     } catch (e) {

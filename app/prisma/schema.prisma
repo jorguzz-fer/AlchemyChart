@@ -61,6 +61,7 @@ model Tenant {
   units     Unit[]
   users     User[]
   auditLogs AuditLog[]
+  controlTargets ControlTarget[]
 }
 
 model Unit {
@@ -227,6 +228,26 @@ model Run {
   nonConformities NonConformity[]
 
   @@index([analyteMaterialId])
+}
+
+// Média/DP-alvo definida MANUALMENTE, compartilhada por um grupo de equipamentos
+// (ex.: "AU 480" cobre AU 480 (1) e (2)). Quando existe, sobrepõe a StatPeriod
+// "USO" calculada como centro do gráfico e referência das regras de Westgard.
+model ControlTarget {
+  id          String   @id @default(cuid())
+  tenantId    String
+  groupKey    String // nome-base normalizado do equipamento (ex: "AU 480")
+  analyteName String
+  level       Int
+  mean        Float
+  sd          Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, groupKey, analyteName, level])
+  @@index([tenantId])
 }
 
 model NonConformity {
