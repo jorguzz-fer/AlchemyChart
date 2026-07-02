@@ -12,6 +12,7 @@ const MENU = [
   { href: "/admin/import-qualichart", icon: "cloud_upload", label: "Importar dados QualiChart" },
   { href: "/admin/import-pdf-runs", icon: "upload_file", label: "Importar corridas PDF" },
   { href: "/admin/import-qualichart-runs", icon: "history", label: "Importar corridas QualiChart" },
+  { href: "/admin/repair-run-levels", icon: "build", label: "Corrigir níveis das corridas" },
   { href: "/admin/purge-nivel3", icon: "delete_sweep", label: "Excluir registros de nível 3" },
   { href: "/ajuda", icon: "help", label: "Ajuda & Suporte" },
 ];

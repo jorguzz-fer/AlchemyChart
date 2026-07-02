@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { RunStatus } from "@prisma/client";
+import { RunStatus, Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/authz";
 import { logAudit, getClientIp } from "@/lib/audit";
@@ -159,6 +159,47 @@ export async function POST(req: Request) {
     return a.id;
   }
 
+  // Resolve o analito do NÍVEL correto (cria se faltar, herdando atributos de
+  // outro nível do mesmo exame). Evita amontoar N1/N2/N3 sob um único analito.
+  async function getAnalyteForLevel(
+    name: string,
+    equipId: string,
+    level: number,
+    materialId: string
+  ): Promise<string> {
+    const key = `${name.toLowerCase()}:${equipId}:L${level}`;
+    if (analyteCache.has(key)) return analyteCache.get(key)!;
+    let a = await prisma.analyte.findFirst({
+      where: { name: { equals: name, mode: "insensitive" }, equipmentId: equipId, level, unitRel: { tenantId } },
+      select: { id: true },
+    });
+    if (!a) {
+      const template = await prisma.analyte.findFirst({
+        where: { name: { equals: name, mode: "insensitive" }, equipmentId: equipId, unitRel: { tenantId } },
+        select: { unit: true, decimalPlaces: true, maxImprecision: true, imprecisionSource: true, westgardRules: true },
+      });
+      a = await prisma.analyte.create({
+        data: {
+          unitId,
+          equipmentId: equipId,
+          materialId,
+          name,
+          level,
+          unit: template?.unit ?? null,
+          decimalPlaces: template?.decimalPlaces ?? 3,
+          maxImprecision: template?.maxImprecision ?? null,
+          imprecisionSource: template?.imprecisionSource ?? null,
+          ...(template?.westgardRules != null
+            ? { westgardRules: template.westgardRules as Prisma.InputJsonValue }
+            : {}),
+        },
+        select: { id: true },
+      });
+    }
+    analyteCache.set(key, a.id);
+    return a.id;
+  }
+
   async function getMaterial(name: string, lot: string): Promise<string> {
     const lotTrimmed = lot.trim();
     const key = `${name}::${lotTrimmed}`;
@@ -211,8 +252,8 @@ export async function POST(req: Request) {
       continue;
     }
 
-    const analyteId = await getAnalyte(ctrl.analyteName, equipId);
-    if (!analyteId) {
+    const anyAnalyte = await getAnalyte(ctrl.analyteName, equipId);
+    if (!anyAnalyte) {
       summary.skippedControls.push(`Analito não encontrado: ${ctrl.analyteName} / ${ctrl.equipmentName}`);
       continue;
     }
@@ -234,6 +275,7 @@ export async function POST(req: Request) {
         if (!sample) continue;
 
         const matId = await getMaterial(sample.name, sample.batch);
+        const analyteId = await getAnalyteForLevel(ctrl.analyteName, equipId, level, matId);
         const amId = await getAM(analyteId, equipId, matId, level);
 
         const runKey = `${amId}:${value}:${dayKey}`;
