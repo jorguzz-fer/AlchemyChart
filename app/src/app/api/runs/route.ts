@@ -172,37 +172,37 @@ export async function POST(req: Request) {
   });
 
   // Notifica supervisores + admins por e-mail quando o lançamento viola Westgard.
-  // Best-effort: nunca quebra o registro da corrida se o e-mail falhar.
+  // Fire-and-forget: NÃO bloqueia o salvamento. A corrida já está gravada e a
+  // resposta retorna na hora; o e-mail sai em background (servidor Node
+  // persistente completa a promise). Assim REJEITAR/ALERTA nunca deixa o
+  // "Salvar" travando por lentidão do provedor de e-mail.
   if (status === "ALERT" || status === "REJECT") {
-    try {
-      const recipients = await prisma.user.findMany({
-        where: {
-          tenantId: session.user.tenantId,
-          active: true,
-          role: { in: ["SUPERVISOR", "ADMIN", "SUPERADMIN"] },
-        },
-        select: { email: true },
-      });
-      const to = recipients.map((r) => r.email).filter((e): e is string => !!e);
-      if (to.length > 0) {
-        await sendControlAlert({
-          to,
-          analyteName: analyte.name,
-          unit: analyte.unit,
-          level: runLevel,
-          equipmentName: analyte.equipment?.name ?? "—",
-          value: numValue,
-          status,
-          violations,
-          analystName: run.user?.name ?? null,
-          runAt: run.runAt,
-          mean: centerMean,
-          sd: centerSd,
+    const alert = {
+      analyteName: analyte.name,
+      unit: analyte.unit,
+      level: runLevel,
+      equipmentName: analyte.equipment?.name ?? "—",
+      value: numValue,
+      status,
+      violations,
+      analystName: run.user?.name ?? null,
+      runAt: run.runAt,
+      mean: centerMean,
+      sd: centerSd,
+    };
+    const tenantId = session.user.tenantId;
+    void (async () => {
+      try {
+        const recipients = await prisma.user.findMany({
+          where: { tenantId, active: true, role: { in: ["SUPERVISOR", "ADMIN", "SUPERADMIN"] } },
+          select: { email: true },
         });
+        const to = recipients.map((r) => r.email).filter((e): e is string => !!e);
+        if (to.length > 0) await sendControlAlert({ to, ...alert });
+      } catch (e) {
+        console.error("[runs] Falha ao notificar supervisores:", e);
       }
-    } catch (e) {
-      console.error("[runs] Falha ao notificar supervisores:", e);
-    }
+    })();
   }
 
   return NextResponse.json(run, { status: 201 });
