@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { checkWestgard } from "@/lib/westgard";
 import { calculateStats } from "@/lib/stats";
 import { NextResponse } from "next/server";
@@ -35,6 +36,56 @@ export async function POST(req: Request) {
   // Se nada existe e level foi passado, cria um AM novo com PREPARO + material
   // herdado (preferindo o AM existente em qualquer nível, fallback para a.materialId).
   const targetLevel = rawLevel != null ? Math.min(3, Math.max(1, Number(rawLevel) || 0)) : null;
+
+  // Nível efetivo da corrida (calculado antes de resolver o Analyte legado do
+  // nível certo, abaixo — não depende do AM final).
+  const runLevel =
+    targetLevel ??
+    (providedAmId
+      ? analyte.analyteMaterials.find((am) => am.id === providedAmId)?.level
+      : undefined) ??
+    analyte.level;
+
+  // O Analyte legado guarda 1 nível por registro (Analyte.level). Se o
+  // analito informado no request não é do nível desta corrida — comum
+  // quando o AM do outro nível foi criado/anexado sob o Analyte errado —
+  // busca (ou cria) o Analyte do nível correto e usa o id dele daqui pra
+  // frente. Sem isso, corridas de níveis diferentes acabam compartilhando
+  // o mesmo histórico/estatística (mesmo bug já corrigido na importação do
+  // QualiChart via getAnalyteForLevel).
+  let effectiveAnalyteId = analyte.id;
+  let effectiveWestgardRules = analyte.westgardRules;
+  if (analyte.level !== runLevel) {
+    let levelAnalyte = await prisma.analyte.findFirst({
+      where: {
+        name: analyte.name,
+        equipmentId: analyte.equipmentId,
+        level: runLevel,
+        unitRel: { tenantId: session.user.tenantId },
+      },
+      select: { id: true, westgardRules: true },
+    });
+    if (!levelAnalyte) {
+      levelAnalyte = await prisma.analyte.create({
+        data: {
+          unitId: analyte.unitId,
+          equipmentId: analyte.equipmentId,
+          materialId: analyte.materialId,
+          name: analyte.name,
+          unit: analyte.unit,
+          level: runLevel,
+          decimalPlaces: analyte.decimalPlaces,
+          maxImprecision: analyte.maxImprecision,
+          imprecisionSource: analyte.imprecisionSource,
+          westgardRules: analyte.westgardRules ?? Prisma.JsonNull,
+        },
+        select: { id: true, westgardRules: true },
+      });
+    }
+    effectiveAnalyteId = levelAnalyte.id;
+    effectiveWestgardRules = levelAnalyte.westgardRules;
+  }
+
   let analyteMaterialId: string | null = null;
 
   if (providedAmId && analyte.analyteMaterials.some((am) => am.id === providedAmId)) {
@@ -49,7 +100,7 @@ export async function POST(req: Request) {
       const materialId = refAm?.material.id ?? analyte.materialId;
       const created = await prisma.analyteMaterial.create({
         data: {
-          analyteId: analyte.id,
+          analyteId: effectiveAnalyteId,
           equipmentId: analyte.equipmentId,
           materialId,
           level: targetLevel,
@@ -63,9 +114,25 @@ export async function POST(req: Request) {
     analyteMaterialId = analyte.analyteMaterials[0]?.id ?? null;
   }
 
+  // Self-heal: garante que o AM desta corrida aponte para o Analyte do
+  // nível correto (corrige on-the-fly um AM que tenha ficado preso no
+  // Analyte de outro nível em uma corrida anterior).
+  if (analyteMaterialId) {
+    try {
+      await prisma.analyteMaterial.updateMany({
+        where: { id: analyteMaterialId, analyteId: { not: effectiveAnalyteId } },
+        data: { analyteId: effectiveAnalyteId },
+      });
+    } catch {
+      // Colisão rara com a constraint única (analyteId+equipmentId+materialId+level);
+      // a corrida ainda é salva corretamente no Analyte do nível certo — a
+      // ferramenta /admin/repair-run-levels resolve o AM remanescente depois.
+    }
+  }
+
   // Get existing runs for this analyte (chronological)
   const existingRuns = await prisma.run.findMany({
-    where: { analyteId },
+    where: { analyteId: effectiveAnalyteId },
     orderBy: { runAt: "asc" },
     select: { value: true },
   });
@@ -74,15 +141,9 @@ export async function POST(req: Request) {
 
   // Get active StatPeriod for Westgard check
   const statPeriod = await prisma.statPeriod.findFirst({
-    where: { analyteId },
+    where: { analyteId: effectiveAnalyteId },
     orderBy: { createdAt: "desc" },
   });
-
-  // Nível efetivo da corrida (para alvo manual e exibição no alerta)
-  const runLevel =
-    targetLevel ??
-    analyte.analyteMaterials.find((am) => am.id === analyteMaterialId)?.level ??
-    analyte.level;
 
   // Alvo manual do grupo (ControlTarget) — média/DP fixada que vale para os
   // equipamentos do par. Tem prioridade sobre a StatPeriod "USO" calculada.
@@ -113,16 +174,16 @@ export async function POST(req: Request) {
   let violations: string[] = [];
 
   if (centerMean != null && centerSd != null) {
-    // Passa westgardRules do analito — se null, checkWestgard usa DEFAULT_WESTGARD_RULES
-    const result = checkWestgard(numValue, centerMean, centerSd, history, analyte.westgardRules);
+    // Passa westgardRules do analito do nível efetivo — se null, checkWestgard usa DEFAULT_WESTGARD_RULES
+    const result = checkWestgard(numValue, centerMean, centerSd, history, effectiveWestgardRules);
     status = result.status;
     violations = result.violations;
   }
 
-  // Save the run (popula tanto analyteId legado quanto analyteMaterialId novo)
+  // Save the run (popula tanto analyteId legado — do nível correto — quanto analyteMaterialId novo)
   const run = await prisma.run.create({
     data: {
-      analyteId,
+      analyteId: effectiveAnalyteId,
       analyteMaterialId,
       equipmentId: analyte.equipmentId,
       userId: session.user.id,
@@ -144,7 +205,7 @@ export async function POST(req: Request) {
     if (s) {
       await prisma.statPeriod.create({
         data: {
-          analyteId,
+          analyteId: effectiveAnalyteId,
           period: "USO",
           mean: s.mean,
           sd: s.sd,
