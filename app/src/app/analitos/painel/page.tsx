@@ -390,8 +390,9 @@ function PainelControleInner() {
   // Níveis nunca usados (ex: N3 num laboratório que só usa 2) não viram coluna.
   type LevelSlot = { analyte: AnalyteRaw; analyteIdx: number; level: number };
   const levelSlots: LevelSlot[] = useMemo(() => {
+    // Laboratório usa apenas N1 e N2 — nível 3 nunca é utilizado.
     const slots: LevelSlot[] = [];
-    for (const level of [1, 2, 3]) {
+    for (const level of [1, 2]) {
       const idx = analytes.findIndex((a) => a.level === level);
       if (idx >= 0) slots.push({ analyte: analytes[idx], analyteIdx: idx, level });
     }

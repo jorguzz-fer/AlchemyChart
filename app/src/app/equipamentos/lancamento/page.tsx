@@ -119,9 +119,11 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
     const ams = a.analyteMaterials ?? [];
 
     // Determina níveis a processar: AMs reais + nível legado (fallback)
+    // Laboratório usa apenas N1 e N2 — nível 3 nunca é utilizado. Ignora
+    // qualquer resíduo de nível 3 para não exibir coluna/tooltip fantasma.
     const levelsToProcess = new Set<number>();
-    for (const am of ams) levelsToProcess.add(am.level);
-    if (levelsToProcess.size === 0) levelsToProcess.add(a.level);
+    for (const am of ams) if (am.level <= 2) levelsToProcess.add(am.level);
+    if (levelsToProcess.size === 0 && a.level <= 2) levelsToProcess.add(a.level);
     for (const l of levelsToProcess) usedLevels.add(l);
 
     for (const level of levelsToProcess) {
