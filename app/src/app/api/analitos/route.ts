@@ -16,12 +16,14 @@ export async function GET() {
     where: { unitRel: { tenantId: session.user.tenantId } },
     include: {
       equipment: { select: { id: true, name: true } },
-      material: { select: { id: true, name: true } },
+      // lot/active são necessários para a tela de lançamento esconder lotes
+      // aposentados (material desativado em Materiais) e rotular o lote em uso.
+      material: { select: { id: true, name: true, lot: true, active: true } },
       _count: { select: { stats: true } },
       analyteMaterials: {
         include: {
           equipment: { select: { id: true, name: true } },
-          material: { select: { id: true, name: true, lot: true } },
+          material: { select: { id: true, name: true, lot: true, active: true } },
         },
       },
     },

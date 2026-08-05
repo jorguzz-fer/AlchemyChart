@@ -4,13 +4,20 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+interface MaterialRef {
+  id: string;
+  name: string;
+  lot?: string | null;
+  active?: boolean;
+}
+
 interface AnalyteMaterialDTO {
   id: string;
   level: number;
   manufacturerMean: number | null;
   manufacturerSD: number | null;
   status: string;
-  material: { id: string; name: string; lot: string | null };
+  material: MaterialRef;
   equipment: { id: string; name: string };
 }
 
@@ -21,9 +28,21 @@ interface Analyte {
   level: number;
   equipmentId: string;
   active?: boolean;
-  material: { id: string; name: string; lot?: string | null };
+  material: MaterialRef;
   _count: { stats: number };
   analyteMaterials: AnalyteMaterialDTO[];
+}
+
+// Vínculos aposentados não podem aparecer para digitação.
+// Um lote antigo continuava na tela de lançamento mesmo depois de desativado
+// em Materiais (ou marcado EXPIRADO/DESABILITADO), porque nada aqui filtrava —
+// era esse o "outro lote" que aparecia sem constar na lista de materiais.
+const RETIRED_AM_STATUS = new Set(["EXPIRADO", "DESABILITADO"]);
+
+function isUsableAm(am: AnalyteMaterialDTO): boolean {
+  if (RETIRED_AM_STATUS.has(am.status)) return false;
+  if (am.material?.active === false) return false;
+  return true;
 }
 
 interface Equipment {
@@ -98,6 +117,15 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
 
   for (const a of list) {
     if (a.active === false) continue;
+
+    // Descarta vínculos aposentados. Se o analito tinha vínculos e TODOS foram
+    // aposentados, o controle saiu de uso — não cai no material legado, some da
+    // tela. Sem vínculo nenhum, vale o material legado (se ainda estiver ativo).
+    const allAms = a.analyteMaterials ?? [];
+    const usableAms = allAms.filter(isUsableAm);
+    if (allAms.length > 0 && usableAms.length === 0) continue;
+    if (allAms.length === 0 && a.material?.active === false) continue;
+
     const key = a.name;
 
     if (!map.has(key)) {
@@ -116,7 +144,7 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
     const hasStatsHere = a._count.stats > 0;
     if (hasStatsHere) item.hasStats = true;
 
-    const ams = a.analyteMaterials ?? [];
+    const ams = usableAms;
 
     // Determina níveis a processar: AMs reais + nível legado (fallback)
     // Laboratório usa apenas N1 e N2 — nível 3 nunca é utilizado. Ignora
