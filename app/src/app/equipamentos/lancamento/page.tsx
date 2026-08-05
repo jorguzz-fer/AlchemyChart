@@ -66,9 +66,13 @@ interface LevelEntry {
   manufacturerSD: number | null;
 }
 
+// Uma linha da tela = um material de controle (lote) vinculado ao analito.
 interface ConditionGroup {
-  materialId: string;
-  hasStats: boolean; // true = Ativo, false = Preparo
+  materialId: string; // id REAL do material — identifica a linha
+  materialName: string;
+  materialLot: string | null;
+  isAtivo: boolean; // vínculo PRONTO ou já com estatísticas → rótulo "Ativo"
+  hasStats: boolean; // tem StatPeriod → habilita o gráfico de CV mensal
   levels: [LevelEntry | null, LevelEntry | null, LevelEntry | null];
   note: string; // observação aplicada a todos os níveis lançados desta linha
 }
@@ -76,7 +80,7 @@ interface ConditionGroup {
 interface AnalyteGroup {
   name: string;
   unit: string | null;
-  conditions: ConditionGroup[]; // Ativo primeiro, depois Preparo
+  conditions: ConditionGroup[]; // lotes em uso primeiro, depois os em preparo
 }
 
 const STATUS_META: Record<RunStatus, { label: string; cls: string }> = {
@@ -89,31 +93,87 @@ const STATUS_META: Record<RunStatus, { label: string; cls: string }> = {
 };
 
 function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
-  // Agrupa por nome do analito. Itera pelos AnalyteMaterials de cada Analyte
-  // legado para popular níveis (não usa o Analyte.level que pode não cobrir
-  // todos os níveis configurados via AMs).
+  // Agrupa por nome do analito e, dentro dele, pelo MATERIAL (lote) realmente
+  // vinculado. Cada lote vira uma linha própria: no dia a dia é uma linha por
+  // analito e, na virada de lote, duas — o em uso e o em preparo — cada uma
+  // identificada pelo lote.
+  //
+  // Antes a tela fabricava um par fixo "Ativo"/"Preparo" que apontava para o
+  // MESMO controle (mesmo analyteId e analyteMaterialId): duas linhas gravando
+  // no mesmo lugar, sem dizer de que lote eram. Era isso que gerava o "fica 1
+  // ativo e outro em preparo, como ativo?" relatado pelas analistas.
   type LevelInfo = {
     analyteId: string; // qual Analyte legado usar para criar runs deste nível
     analyteMaterialId: string | null; // null = nível sem AM, backend cria ao salvar
-    materialName: string;
-    materialLot: string | null;
     manufacturerMean: number | null;
     manufacturerSD: number | null;
     hasProntoAM: boolean;
     hasStats: boolean;
   };
+  type MaterialBucket = {
+    materialId: string;
+    materialName: string;
+    materialLot: string | null;
+    hasAnyAm: boolean; // veio de vínculo real (não do material legado)
+    hasPronto: boolean;
+    hasStats: boolean;
+    levels: Map<number, LevelInfo>;
+  };
   type Item = {
     name: string;
     unit: string | null;
-    levels: Map<number, LevelInfo>;
-    hasStats: boolean;
-    hasPromo: boolean;
+    materials: Map<string, MaterialBucket>;
   };
+
   const map = new Map<string, Item>();
   // Níveis realmente em uso neste equipamento (união dos níveis configurados).
   // Usado para padding e para decidir quais colunas exibir (níveis não usados
   // somem automaticamente — ex.: laboratório que só usa N1 e N2).
   const usedLevels = new Set<number>();
+
+  function getItem(a: Analyte): Item {
+    let item = map.get(a.name);
+    if (!item) {
+      item = { name: a.name, unit: a.unit, materials: new Map() };
+      map.set(a.name, item);
+    }
+    if (!item.unit && a.unit) item.unit = a.unit;
+    return item;
+  }
+
+  function getBucket(item: Item, m: MaterialRef): MaterialBucket {
+    let bucket = item.materials.get(m.id);
+    if (!bucket) {
+      bucket = {
+        materialId: m.id,
+        materialName: m.name,
+        materialLot: m.lot ?? null,
+        hasAnyAm: false,
+        hasPronto: false,
+        hasStats: false,
+        levels: new Map(),
+      };
+      item.materials.set(m.id, bucket);
+    }
+    return bucket;
+  }
+
+  // Guarda o nível preferindo sempre o vínculo PRONTO / com estatísticas.
+  function setLevel(bucket: MaterialBucket, level: number, info: LevelInfo) {
+    const existing = bucket.levels.get(level);
+    const shouldUpdate =
+      !existing ||
+      (info.hasProntoAM && !existing.hasProntoAM) ||
+      (info.hasStats && !existing.hasStats);
+    if (shouldUpdate) {
+      bucket.levels.set(level, {
+        ...info,
+        hasProntoAM: info.hasProntoAM || (existing?.hasProntoAM ?? false),
+        hasStats: info.hasStats || (existing?.hasStats ?? false),
+      });
+    }
+    usedLevels.add(level);
+  }
 
   for (const a of list) {
     if (a.active === false) continue;
@@ -126,82 +186,53 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
     if (allAms.length > 0 && usableAms.length === 0) continue;
     if (allAms.length === 0 && a.material?.active === false) continue;
 
-    const key = a.name;
-
-    if (!map.has(key)) {
-      map.set(key, {
-        name: a.name,
-        unit: a.unit,
-        levels: new Map(),
-        hasStats: false,
-        hasPromo: false,
-      });
-    }
-
-    const item = map.get(key)!;
-    if (!item.unit && a.unit) item.unit = a.unit;
-
     const hasStatsHere = a._count.stats > 0;
-    if (hasStatsHere) item.hasStats = true;
+    const item = getItem(a);
 
-    const ams = usableAms;
-
-    // Determina níveis a processar: AMs reais + nível legado (fallback)
-    // Laboratório usa apenas N1 e N2 — nível 3 nunca é utilizado. Ignora
-    // qualquer resíduo de nível 3 para não exibir coluna/tooltip fantasma.
-    const levelsToProcess = new Set<number>();
-    for (const am of ams) if (am.level <= 2) levelsToProcess.add(am.level);
-    if (levelsToProcess.size === 0 && a.level <= 2) levelsToProcess.add(a.level);
-    for (const l of levelsToProcess) usedLevels.add(l);
-
-    for (const level of levelsToProcess) {
-      const amsAtLevel = ams.filter((m) => m.level === level);
-      const hasProntoAM = amsAtLevel.some((m) => m.status === "PRONTO");
-      if (hasProntoAM) item.hasPromo = true;
-
-      // AM preferido: PRONTO no mesmo nível, senão qualquer um
-      const am = amsAtLevel.find((m) => m.status === "PRONTO") ?? amsAtLevel[0];
-
-      // Material a exibir: do AM se disponível, senão do Analyte legado
-      const materialName = am?.material?.name ?? a.material.name;
-      const materialLot = am?.material?.lot ?? a.material.lot ?? null;
-
-      const existing = item.levels.get(level);
-      // Atualiza se: não existe, ou este tem PRONTO/stats e o anterior não
-      const shouldUpdate =
-        !existing ||
-        (hasProntoAM && !existing.hasProntoAM) ||
-        (hasStatsHere && !existing.hasStats);
-
-      if (shouldUpdate) {
-        item.levels.set(level, {
+    if (usableAms.length > 0) {
+      for (const am of usableAms) {
+        // Laboratório usa apenas N1 e N2 — nível 3 nunca é utilizado.
+        if (am.level > 2) continue;
+        const bucket = getBucket(item, am.material);
+        const isPronto = am.status === "PRONTO";
+        bucket.hasAnyAm = true;
+        if (isPronto) bucket.hasPronto = true;
+        if (hasStatsHere) bucket.hasStats = true;
+        setLevel(bucket, am.level, {
           analyteId: a.id,
-          analyteMaterialId: am?.id ?? null,
-          materialName,
-          materialLot,
-          manufacturerMean: am?.manufacturerMean ?? null,
-          manufacturerSD: am?.manufacturerSD ?? null,
-          hasProntoAM: hasProntoAM || (existing?.hasProntoAM ?? false),
-          hasStats: hasStatsHere || (existing?.hasStats ?? false),
+          analyteMaterialId: am.id,
+          manufacturerMean: am.manufacturerMean,
+          manufacturerSD: am.manufacturerSD,
+          hasProntoAM: isPronto,
+          hasStats: hasStatsHere,
         });
       }
+    } else if (a.level <= 2) {
+      // Analito legado sem nenhum vínculo: usa o material do próprio registro.
+      const bucket = getBucket(item, a.material);
+      if (hasStatsHere) bucket.hasStats = true;
+      setLevel(bucket, a.level, {
+        analyteId: a.id,
+        analyteMaterialId: null,
+        manufacturerMean: null,
+        manufacturerSD: null,
+        hasProntoAM: false,
+        hasStats: hasStatsHere,
+      });
     }
   }
 
-  // Para cada analito do mapa, garante que TODOS os níveis EM USO (usedLevels)
-  // tenham info — se faltar, gera um placeholder usando dados de outro nível
-  // existente. Backend auto-cria o AM quando o usuário lançar valor. Níveis
-  // que ninguém configurou ficam de fora (não viram coluna).
+  // Garante que cada lote tenha campo em TODOS os níveis em uso no equipamento.
+  // O AnalyteMaterial faltante é criado pelo backend no primeiro lançamento.
   for (const item of map.values()) {
-    const anyLevel = Array.from(item.levels.values())[0];
-    if (!anyLevel) continue;
-    for (const lvl of usedLevels) {
-      if (!item.levels.has(lvl)) {
-        item.levels.set(lvl, {
-          analyteId: anyLevel.analyteId,
+    for (const bucket of item.materials.values()) {
+      const ref = Array.from(bucket.levels.values())[0];
+      if (!ref) continue;
+      for (const lvl of usedLevels) {
+        if (bucket.levels.has(lvl)) continue;
+        bucket.levels.set(lvl, {
+          analyteId: ref.analyteId,
           analyteMaterialId: null, // sinaliza que será criado on-demand
-          materialName: anyLevel.materialName,
-          materialLot: anyLevel.materialLot,
           manufacturerMean: null,
           manufacturerSD: null,
           hasProntoAM: false,
@@ -213,51 +244,50 @@ function groupAnalytes(list: Analyte[]): AnalyteGroup[] {
 
   const result: AnalyteGroup[] = [];
 
-  for (const { name, unit, levels, hasStats, hasPromo } of map.values()) {
-    const isAtivo = hasStats || hasPromo;
+  for (const item of map.values()) {
+    const conditions: ConditionGroup[] = Array.from(item.materials.values())
+      .map((bucket) => {
+        const levels = [1, 2, 3].map((lvl) => {
+          const info = bucket.levels.get(lvl);
+          if (!info) return null;
+          return {
+            analyteId: info.analyteId,
+            analyteMaterialId: info.analyteMaterialId,
+            level: lvl,
+            value: "",
+            status: "idle" as RunStatus,
+            violations: [] as string[],
+            materialName: bucket.materialName,
+            materialLot: bucket.materialLot,
+            manufacturerMean: info.manufacturerMean,
+            manufacturerSD: info.manufacturerSD,
+          };
+        }) as [LevelEntry | null, LevelEntry | null, LevelEntry | null];
 
-    function makeEntry(level: number, info: LevelInfo): LevelEntry {
-      return {
-        analyteId: info.analyteId,
-        analyteMaterialId: info.analyteMaterialId,
-        level,
-        value: "",
-        status: "idle",
-        violations: [],
-        materialName: info.materialName,
-        materialLot: info.materialLot,
-        manufacturerMean: info.manufacturerMean,
-        manufacturerSD: info.manufacturerSD,
-      };
-    }
+        return {
+          materialId: bucket.materialId,
+          materialName: bucket.materialName,
+          materialLot: bucket.materialLot,
+          // Com vínculo real, quem manda é o status do vínculo: um Analyte legado
+          // pode ter estatísticas E apontar para o lote novo ao mesmo tempo (virada
+          // de lote) — usar as estatísticas aqui marcaria o lote novo como "Ativo".
+          isAtivo: bucket.hasAnyAm ? bucket.hasPronto : bucket.hasStats,
+          hasStats: bucket.hasStats,
+          levels,
+          note: "",
+        };
+      })
+      // Lote em uso primeiro, depois os em preparo; empate resolve pelo lote.
+      .sort((x, y) => {
+        if (x.isAtivo !== y.isAtivo) return x.isAtivo ? -1 : 1;
+        return (x.materialLot ?? x.materialName).localeCompare(
+          y.materialLot ?? y.materialName,
+          "pt-BR"
+        );
+      });
 
-    // Ativo e Preparo: ambos exibem todos os 3 níveis populados.
-    // A distinção visual (label + ícone de gráfico ativo) sinaliza o estado;
-    // funcionalmente, qualquer um aceita lançamento e o backend cria o AM
-    // faltante on-demand.
-    const allArr: [LevelEntry | null, LevelEntry | null, LevelEntry | null] = [1, 2, 3].map(
-      (lvl) => {
-        const info = levels.get(lvl);
-        return info ? makeEntry(lvl, info) : null;
-      }
-    ) as [LevelEntry | null, LevelEntry | null, LevelEntry | null];
-
-    const ativoArr = allArr;
-    // Preparo precisa de cópia separada para não compartilhar referências
-    // (cada condição armazena value/status próprios ao editar).
-    const preparoArr: [LevelEntry | null, LevelEntry | null, LevelEntry | null] = [
-      allArr[0] ? { ...allArr[0] } : null,
-      allArr[1] ? { ...allArr[1] } : null,
-      allArr[2] ? { ...allArr[2] } : null,
-    ];
-
-    const conditions: ConditionGroup[] = [];
-    if (isAtivo) {
-      conditions.push({ materialId: "ativo", hasStats: true, levels: ativoArr, note: "" });
-    }
-    conditions.push({ materialId: "preparo", hasStats: false, levels: preparoArr, note: "" });
-
-    result.push({ name, unit, conditions });
+    if (conditions.length === 0) continue;
+    result.push({ name: item.name, unit: item.unit, conditions });
   }
 
   return result.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
@@ -280,7 +310,11 @@ function BulaTooltip({ cond, equipmentName }: { cond: ConditionGroup; equipmentN
   return (
     <div className="space-y-2 text-xs">
       <div className="font-semibold text-white/90 border-b border-white/20 pb-1 mb-1">
-        {equipmentName} — {cond.hasStats ? "Ativo" : "Preparo"}
+        {equipmentName} — {cond.isAtivo ? "Ativo" : "Preparo"}
+        <span className="block font-normal text-white/60">
+          {cond.materialName}
+          {cond.materialLot && ` · Lote ${cond.materialLot}`}
+        </span>
       </div>
       {levelsWithData.map(({ entry, level }) => (
         <div key={level} className="space-y-0.5">
@@ -558,7 +592,7 @@ function LancamentoInner() {
                 {groups.map((group, gi) =>
                   group.conditions.map((cond, ci) => {
                     const isFirstCond = ci === 0;
-                    const isAtivo = cond.hasStats;
+                    const isAtivo = cond.isAtivo;
                     const tooltipKey = `${gi}-${ci}`;
                     const isOpen = openTooltip === tooltipKey;
                     const equipName = selectedEquip?.name ?? "";
@@ -585,13 +619,32 @@ function LancamentoInner() {
                         {/* Condição do controle + ícones de ação */}
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-3">
-                            <span className={`text-sm font-medium ${isAtivo ? "text-gray-700 dark:text-gray-200" : "text-gray-500 dark:text-gray-400"}`}>
-                              {isAtivo ? "Ativo" : "Preparo"}
-                            </span>
+                            {/* Identifica o LOTE da linha — sem isso o analista não
+                                sabe em qual controle está digitando na virada de lote */}
+                            <div className="min-w-0 flex-1">
+                              <span
+                                className={`inline-block text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
+                                  isAtivo
+                                    ? "bg-success-50 text-success-700 dark:bg-success-900/20"
+                                    : "bg-warning-50 text-warning-700 dark:bg-warning-900/20"
+                                }`}
+                              >
+                                {isAtivo ? "Ativo" : "Preparo"}
+                              </span>
+                              <span
+                                className="block text-xs text-gray-600 dark:text-gray-400 truncate mt-0.5"
+                                title={`${cond.materialName}${cond.materialLot ? ` · Lote ${cond.materialLot}` : ""}`}
+                              >
+                                {cond.materialName}
+                                {cond.materialLot && (
+                                  <span className="text-gray-400"> · {cond.materialLot}</span>
+                                )}
+                              </span>
+                            </div>
 
-                            <div className="flex items-center gap-1.5">
-                              {/* 📊 Gráfico evolutivo do CV mensal — só quando Ativo */}
-                              {isAtivo ? (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {/* 📊 Gráfico evolutivo do CV mensal — só com estatísticas */}
+                              {cond.hasStats ? (
                                 <Link
                                   href={`/analitos/cv-mensal?name=${encodeURIComponent(group.name)}&eq=${selectedEquipId}`}
                                   title="Gráfico evolutivo do CV mensal"
