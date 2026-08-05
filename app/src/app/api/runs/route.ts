@@ -197,10 +197,12 @@ export async function POST(req: Request) {
     },
   });
 
-  // Auto-create StatPeriod after SETUP_THRESHOLD runs if none exists
+  // Auto-create StatPeriod after SETUP_THRESHOLD runs if none exists.
+  // Usa só a janela de preparo (primeiras SETUP_THRESHOLD corridas) para que o
+  // alvo de "USO" nasça congelado — mesma regra do recompute em [id]/route.ts.
   const totalRuns = history.length + 1;
   if (!statPeriod && totalRuns >= SETUP_THRESHOLD) {
-    const allValues = [...history, numValue];
+    const allValues = [...history, numValue].slice(0, SETUP_THRESHOLD);
     const s = calculateStats(allValues);
     if (s) {
       await prisma.statPeriod.create({

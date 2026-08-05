@@ -85,6 +85,24 @@ function Toggle({
 
 const LEVEL_COLORS = ["text-danger-600", "text-primary-600", "text-success-600"];
 
+// ─── Formatação de data da corrida ────────────────────────────────────────────
+// A corrida guarda runAt; os analistas precisam saber de que dia é cada
+// lançamento para conferir/corrigir o que foi digitado errado.
+
+function fmtRunDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+
+function fmtRunDateTime(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+}
+
 // ─── Rule violation circle ────────────────────────────────────────────────────
 // Renderiza um pequeno círculo colorido representando uma violação Westgard,
 // com cor baseada no state da regra na config do analito (ALERT=amarelo,
@@ -440,11 +458,15 @@ function PainelControleInner() {
     setTargetBusy(false);
   };
 
-  const allChartValues = rows
-    .map((r) => r.values[chartLevelIdx])
-    .filter((v): v is number => v !== null);
+  // Mantém valor + data juntos para que o tooltip do gráfico mostre de quando é
+  // cada ponto (o analista precisa disso para achar a corrida a corrigir).
+  const allChartPoints = rows
+    .map((r) => ({ no: r.no, value: r.values[chartLevelIdx], at: r.runAt[chartLevelIdx] }))
+    .filter((p): p is { no: number; value: number; at: string | null } => p.value !== null);
   // Toggle "Último": mostra apenas últimas 20 corridas (janela típica de Westgard)
-  const chartValues = valoresUltimo ? allChartValues.slice(-20) : allChartValues;
+  const chartPoints = valoresUltimo ? allChartPoints.slice(-20) : allChartPoints;
+  const chartValues = chartPoints.map((p) => p.value);
+  const chartLabels = chartPoints.map((p) => ({ no: p.no, date: fmtRunDateTime(p.at) }));
   const chartStat = painelData?.stats[chartLevelIdx];
   // Alvo manual (do grupo) tem prioridade como centro do gráfico
   const chartMean =
@@ -615,6 +637,7 @@ function PainelControleInner() {
                   <thead className="bg-gray-50 dark:bg-[#1a1a1a] sticky top-0 z-10">
                     <tr>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 w-10">#</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 w-20">Data</th>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 w-14">Editar</th>
                       {levelSlots.map((slot) => {
                         const level = slot.level;
@@ -658,6 +681,18 @@ function PainelControleInner() {
                           }`}
                         >
                           <td className="px-3 py-2.5 text-xs font-semibold text-gray-400">{row.no}</td>
+                          <td className="px-3 py-2.5 text-xs text-gray-500 whitespace-nowrap">
+                            {(() => {
+                              // N1 e N2 são lançados juntos — usa a primeira data disponível da linha
+                              const iso = row.runAt.find((d) => !!d) ?? null;
+                              const short = fmtRunDate(iso);
+                              return short ? (
+                                <span title={fmtRunDateTime(iso) ?? undefined}>{short}</span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              );
+                            })()}
+                          </td>
                           <td className="px-3 py-2.5">
                             <div className="flex items-center gap-0.5">
                               {editingRow === row.no ? (
@@ -768,6 +803,7 @@ function PainelControleInner() {
                     {/* New run input row */}
                     <tr className="border-t-2 border-primary-200 dark:border-primary-800 bg-primary-50/30 dark:bg-primary-900/10">
                       <td className="px-3 py-2.5 text-xs font-semibold text-gray-400">{rows.length + 1}</td>
+                      <td className="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap">hoje</td>
                       <td />
                       {levelSlots.map((slot) => {
                         const level = slot.level;
@@ -861,7 +897,7 @@ function PainelControleInner() {
                 </div>
                 <div className="p-4">
                   {chartValues.length >= 2 ? (
-                    <LeveyJenningsChart mean={chartMean} sd={chartSd} values={chartValues} height={220} />
+                    <LeveyJenningsChart mean={chartMean} sd={chartSd} values={chartValues} labels={chartLabels} height={220} />
                   ) : (
                     <div className="h-56 flex flex-col items-center justify-center text-gray-400">
                       <span className="material-symbols-outlined text-4xl mb-2">monitoring</span>
@@ -886,7 +922,11 @@ function PainelControleInner() {
                   <table className="w-full text-xs">
                     <thead className="bg-gray-50 dark:bg-[#0c0b0b]">
                       <tr>
-                        <th className="px-3 py-2 text-left text-gray-400 font-semibold w-16">#</th>
+                        {/* colSpan=2 cobre a coluna do rótulo vertical (Uso/Corrente)
+                            + a coluna do nome da linha (Média/Desvio Padrão/…).
+                            Sem isso o cabeçalho tem 1 coluna a menos que o corpo e os
+                            títulos "Nível 1/2" aparecem deslocados sobre os rótulos. */}
+                        <th colSpan={2} className="px-3 py-2 text-left text-gray-400 font-semibold">#</th>
                         {levelSlots.map((slot) => (
                           <th
                             key={`lvl-${slot.level}`}

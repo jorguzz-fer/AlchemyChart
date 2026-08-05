@@ -5,10 +5,17 @@ import type { ApexOptions } from "apexcharts";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
+interface PointLabel {
+  no: number;              // nº da corrida na tabela
+  date: string | null;     // data/hora do lançamento já formatada
+}
+
 interface Props {
   mean: number;
   sd: number;
   values: number[];
+  /** Nº e data de cada ponto — exibidos no tooltip para localizar a corrida. */
+  labels?: PointLabel[];
   height?: number;
 }
 
@@ -16,7 +23,7 @@ interface Props {
  * Levey-Jennings chart — mostra corridas analíticas contra limites ±1s/±2s/±3s.
  * Cores: primary (média), success (±1s), warning (±2s), danger (±3s).
  */
-export default function LeveyJenningsChart({ mean, sd, values, height = 320 }: Props) {
+export default function LeveyJenningsChart({ mean, sd, values, labels, height = 320 }: Props) {
   const s1p = mean + sd;
   const s1n = mean - sd;
   const s2p = mean + 2 * sd;
@@ -24,7 +31,7 @@ export default function LeveyJenningsChart({ mean, sd, values, height = 320 }: P
   const s3p = mean + 3 * sd;
   const s3n = mean - 3 * sd;
 
-  const categories = values.map((_, i) => i + 1);
+  const categories = values.map((_, i) => labels?.[i]?.no ?? i + 1);
 
   // Mark each point violating 1:3s with danger color
   const markerColors = values.map((v) =>
@@ -85,6 +92,14 @@ export default function LeveyJenningsChart({ mean, sd, values, height = 320 }: P
     },
     tooltip: {
       theme: "light",
+      x: {
+        formatter: (val: number, opts?: { dataPointIndex?: number }) => {
+          const i = opts?.dataPointIndex ?? -1;
+          const label = i >= 0 ? labels?.[i] : undefined;
+          const no = label?.no ?? val;
+          return label?.date ? `Corrida ${no} — ${label.date}` : `Corrida ${no}`;
+        },
+      },
       y: { formatter: (v) => v.toFixed(3) },
     },
     legend: { show: false },

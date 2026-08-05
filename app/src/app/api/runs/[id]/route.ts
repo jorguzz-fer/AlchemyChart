@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { requireRole, ROLES_WRITE, ROLES_MANAGE } from "@/lib/authz";
+import { requireRole, ROLES_WRITE } from "@/lib/authz";
 import { logAudit, getClientIp } from "@/lib/audit";
 import { checkWestgard } from "@/lib/westgard";
 import { calculateStats } from "@/lib/stats";
@@ -10,6 +10,15 @@ const SETUP_THRESHOLD = 20;
 
 // Recomputa StatPeriod e Westgard para todas as corridas do mesmo analito.
 // Chamado após editar/deletar para manter consistência.
+//
+// IMPORTANTE — a média/DP de "USO" é CONGELADA na fase de preparo: deriva
+// sempre das primeiras SETUP_THRESHOLD corridas (ordem cronológica), nunca do
+// conjunto completo. Recalcular sobre todas as corridas fazia o centro do
+// Levey-Jennings perseguir os próprios dados: um valor digitado errado
+// entrava na média, deslocava a curva e mascarava as violações de Westgard.
+// Editar/apagar uma corrida DENTRO da janela de preparo atualiza o alvo (a
+// base mudou, é correção legítima); mexer numa corrida posterior não move
+// mais o centro.
 async function recomputeAnalyteStats(analyteId: string) {
   const runs = await prisma.run.findMany({
     where: { analyteId },
@@ -35,7 +44,8 @@ async function recomputeAnalyteStats(analyteId: string) {
   });
 
   if (runs.length >= SETUP_THRESHOLD) {
-    const values = runs.map((r) => r.value);
+    // Janela de preparo apenas — não o histórico inteiro (ver nota acima).
+    const values = runs.slice(0, SETUP_THRESHOLD).map((r) => r.value);
     const s = calculateStats(values);
     if (s) {
       if (existingStat) {
@@ -164,8 +174,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 }
 
 // DELETE /api/runs/[id] — remove a corrida
+// Analistas podem apagar: já podiam EDITAR o valor via PATCH (ROLES_WRITE), então
+// bloquear só o apagar não protegia o dado — apenas travava a correção de um valor
+// digitado errado. Toda exclusão fica registrada na auditoria (quem/quando/valor).
 export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const { session, error } = await requireRole(ROLES_MANAGE);
+  const { session, error } = await requireRole(ROLES_WRITE);
   if (error) return error;
 
   const { id } = await ctx.params;
