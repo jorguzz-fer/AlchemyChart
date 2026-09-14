@@ -18,6 +18,11 @@ const ADMIN_ROLES = ["SUPERADMIN", "ADMIN"] as const;
 // demais deixou uma fileira de "rejeitar" falsos. Esta ferramenta refaz o
 // veredito de cada corrida com o alvo novo. Não toca em valor, data nem
 // autor; só em status/violations.
+//
+// Aceita uma data "a partir de": só corridas desse dia em diante mudam de
+// veredito. O histórico anterior continua entrando no cálculo das regras que
+// olham corridas passadas (2:2s, 4:1s, 10x…) — o que fica preservado é só o
+// status já gravado das corridas antigas.
 
 type RunStatus = "OK" | "ALERT" | "REJECT";
 
@@ -33,6 +38,17 @@ type AnalyteReport = {
   transitions: Record<string, number>; // "REJECT→OK": n
 };
 
+// Data no fuso do laboratório (São Paulo, -03:00 fixo desde 2019).
+// "2026-09-01" vira meia-noite em Brasília — não meia-noite UTC, que seria
+// 21h do dia anterior e puxaria corridas da noite de 31/08.
+function parseFrom(raw: string | null): { from: Date | null; error?: string } {
+  if (!raw) return { from: null };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return { from: null, error: "Data inválida (use AAAA-MM-DD)" };
+  const d = new Date(`${raw}T00:00:00-03:00`);
+  if (isNaN(d.getTime())) return { from: null, error: "Data inválida" };
+  return { from: d };
+}
+
 function sameViolations(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   const sa = [...a].sort();
@@ -40,7 +56,7 @@ function sameViolations(a: string[], b: string[]): boolean {
   return sa.every((v, i) => v === sb[i]);
 }
 
-async function buildPlan(tenantId: string) {
+async function buildPlan(tenantId: string, from: Date | null) {
   // Nível 3 nunca é usado neste laboratório — fica fora.
   const analytes = await prisma.analyte.findMany({
     where: { unitRel: { tenantId }, active: true, level: { lte: 2 } },
@@ -62,9 +78,13 @@ async function buildPlan(tenantId: string) {
     const runs = await prisma.run.findMany({
       where: { analyteId: a.id },
       orderBy: { runAt: "asc" },
-      select: { id: true, value: true, status: true, violations: true },
+      select: { id: true, value: true, status: true, violations: true, runAt: true },
     });
     if (runs.length === 0) continue;
+
+    // Só corridas dentro da janela mudam; as anteriores ficam só como histórico.
+    const inWindow = from ? runs.filter((r) => r.runAt >= from) : runs;
+    if (inWindow.length === 0) continue;
 
     const center = await resolveControlCenter({
       tenantId,
@@ -80,7 +100,7 @@ async function buildPlan(tenantId: string) {
       equipment: a.equipment?.name ?? a.equipmentId,
       level: a.level,
       source: center?.source ?? null,
-      runs: runs.length,
+      runs: inWindow.length,
       changes: 0,
       transitions: {},
     };
@@ -93,20 +113,23 @@ async function buildPlan(tenantId: string) {
 
     for (let i = 0; i < runs.length; i++) {
       const run = runs[i];
+      if (from && run.runAt < from) continue; // fora da janela: só serve de histórico
       const history = runs.slice(0, i).map((r) => r.value);
       const result = checkWestgard(run.value, center.mean, center.sd, history, a.westgardRules ?? null);
-      const from = run.status as RunStatus;
-      if (from !== result.status || !sameViolations(run.violations, result.violations)) {
-        changes.push({ runId: run.id, from, to: result.status, violations: result.violations });
+      // "prev", não "from": "from" é a janela de data (parâmetro) — o nome
+      // repetido aqui fazia sombra e quebrava a comparação de datas acima.
+      const prev = run.status as RunStatus;
+      if (prev !== result.status || !sameViolations(run.violations, result.violations)) {
+        changes.push({ runId: run.id, from: prev, to: result.status, violations: result.violations });
         entry.changes++;
-        const key = `${from}→${result.status}`;
+        const key = `${prev}→${result.status}`;
         entry.transitions[key] = (entry.transitions[key] ?? 0) + 1;
       }
     }
     report.push(entry);
   }
 
-  return { changes, report };
+  return { changes, report, from };
 }
 
 function summarize(plan: Awaited<ReturnType<typeof buildPlan>>) {
@@ -122,6 +145,7 @@ function summarize(plan: Awaited<ReturnType<typeof buildPlan>>) {
   }
 
   return {
+    from: plan.from ? plan.from.toISOString() : null,
     totals: {
       analytes: report.length,
       runs: report.reduce((s, r) => s + r.runs, 0),
@@ -140,11 +164,14 @@ function summarize(plan: Awaited<ReturnType<typeof buildPlan>>) {
 }
 
 // GET — prévia (não altera nada)
-export async function GET() {
+export async function GET(req: Request) {
   const { session, error } = await requireRole([...ADMIN_ROLES]);
   if (error) return error;
 
-  const plan = await buildPlan(session.user.tenantId);
+  const parsed = parseFrom(new URL(req.url).searchParams.get("from"));
+  if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: 400 });
+
+  const plan = await buildPlan(session.user.tenantId, parsed.from);
   return NextResponse.json(summarize(plan));
 }
 
@@ -154,7 +181,12 @@ export async function POST(req: Request) {
   if (error) return error;
 
   const tenantId = session.user.tenantId;
-  const plan = await buildPlan(tenantId);
+  // Data inválida aqui seria perigoso: aplicaria em TODAS as corridas achando
+  // que está limitado. Por isso é erro, não fallback.
+  const parsed = parseFrom(new URL(req.url).searchParams.get("from"));
+  if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: 400 });
+
+  const plan = await buildPlan(tenantId, parsed.from);
   const summary = summarize(plan);
 
   // Em lotes para não abrir uma transação gigante
@@ -175,6 +207,7 @@ export async function POST(req: Request) {
 
   const result = {
     updated,
+    from: summary.from,
     transitions: summary.totals.transitions,
     bySource: summary.totals.bySource,
   };

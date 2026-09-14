@@ -13,6 +13,7 @@ interface DetailRow {
 }
 
 interface Preview {
+  from: string | null;
   totals: {
     analytes: number;
     runs: number;
@@ -26,6 +27,7 @@ interface Preview {
 
 interface Result {
   updated: number;
+  from: string | null;
   transitions: Record<string, number>;
   bySource: Record<string, number>;
 }
@@ -42,6 +44,12 @@ const SOURCE_LABEL: Record<string, string> = {
   calculada: "calculada",
   nenhuma: "sem referência",
 };
+
+function fmtWindow(iso: string | null): string {
+  if (!iso) return "todas as corridas";
+  const d = new Date(iso);
+  return `corridas de ${d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} em diante`;
+}
 
 function Transition({ k, n }: { k: string; n: number }) {
   const [from, to] = k.split("→");
@@ -65,12 +73,16 @@ export default function ReevaluateRunsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  // Janela "a partir de" (AAAA-MM-DD). Vazio = todas as corridas.
+  const [from, setFrom] = useState("");
+
+  const qs = from ? `?from=${encodeURIComponent(from)}` : "";
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/reevaluate-runs");
+      const res = await fetch(`/api/admin/reevaluate-runs${qs}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
       setPreview(data);
@@ -79,7 +91,7 @@ export default function ReevaluateRunsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [qs]);
 
   useEffect(() => {
     load();
@@ -88,7 +100,7 @@ export default function ReevaluateRunsPage() {
   const apply = async () => {
     if (!preview) return;
     const ok = confirm(
-      `Reavaliar ${preview.totals.runs} corrida(s) contra o alvo atual?\n\n` +
+      `Reavaliar ${preview.totals.runs} corrida(s) contra o alvo atual — ${fmtWindow(preview.from)}?\n\n` +
         `${preview.totals.changes} corrida(s) vão mudar de status (OK / Alerta / Rejeitar).\n` +
         `Valor, data e autor de cada corrida NÃO são alterados.`
     );
@@ -97,7 +109,7 @@ export default function ReevaluateRunsPage() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/reevaluate-runs", { method: "POST" });
+      const res = await fetch(`/api/admin/reevaluate-runs${qs}`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
       setResult(data.result);
@@ -114,14 +126,29 @@ export default function ReevaluateRunsPage() {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-black dark:text-white mb-1">
-          Reavaliar corridas contra o alvo
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400">
-          Refaz o veredito Westgard (OK / Alerta / Rejeitar) de todas as corridas usando o alvo
-          atual de cada controle — alvo manual, senão a bula, senão a média calculada.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-black dark:text-white mb-1">
+            Reavaliar corridas contra o alvo
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            Refaz o veredito Westgard (OK / Alerta / Rejeitar) das corridas usando o alvo
+            atual de cada controle — alvo manual, senão a bula, senão a média calculada.
+          </p>
+        </div>
+        {/* Janela: só corridas desta data em diante mudam de veredito. O histórico
+            anterior continua contando para as regras que olham corridas passadas. */}
+        <label className="flex flex-col gap-1 text-xs text-gray-500 shrink-0">
+          <span className="font-semibold uppercase tracking-wide">A partir de</span>
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            disabled={busy}
+            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#141414] text-sm text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+          />
+          <span className="text-[11px] text-gray-400">Vazio = todas as corridas</span>
+        </label>
       </div>
 
       {error && (
@@ -134,7 +161,7 @@ export default function ReevaluateRunsPage() {
         <div className="bg-success-50 border border-success-200 rounded-2xl p-5">
           <h3 className="font-bold text-success-800 mb-3 flex items-center gap-2">
             <span className="material-symbols-outlined text-[20px]">task_alt</span>
-            Reavaliação concluída — {result.updated} corrida(s) atualizada(s)
+            Reavaliação concluída — {result.updated} corrida(s) atualizada(s) · {fmtWindow(result.from)}
           </h3>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             {transitionEntries(result.transitions).map(([k, n]) => (
@@ -153,7 +180,10 @@ export default function ReevaluateRunsPage() {
           {/* Resumo */}
           <div className="bg-white dark:bg-[#141414] rounded-2xl border border-gray-100 dark:border-[#1a1a1a] overflow-hidden">
             <div className="bg-danger-600 px-5 py-3 flex items-center justify-between">
-              <h3 className="text-white font-bold text-sm">O que vai mudar</h3>
+              <h3 className="text-white font-bold text-sm">
+                O que vai mudar
+                <span className="font-normal text-white/70"> · {fmtWindow(preview.from)}</span>
+              </h3>
               <span className="text-white/70 text-xs">
                 {preview.totals.changes} de {preview.totals.runs} corridas
               </span>
