@@ -32,14 +32,27 @@ interface RunRow {
   violations: (string[] | null)[];
   runIds: (string | null)[];
   runAt: (string | null)[];
+  userNames: (string | null)[];
 }
+
+type CenterSource = "manual" | "bula" | "calculada";
 
 interface LevelStats {
   statPeriod: { mean: number; sd: number; cv: number; n: number } | null;
   currentStats: { mean: number; sd: number; cv: number; n: number } | null;
+  // CV das corridas sobre a média de referência (não sobre uma média recalculada)
+  currentCv: number | null;
+  // Centro efetivo do gráfico/Westgard: manual > bula > calculada
+  center: { mean: number; sd: number; source: CenterSource } | null;
   manualTarget: { mean: number; sd: number } | null;
   groupKey: string;
 }
+
+const CENTER_SOURCE_LABEL: Record<CenterSource, string> = {
+  manual: "manual",
+  bula: "bula",
+  calculada: "calculada",
+};
 
 interface PainelData {
   analytes: AnalyteRaw[];
@@ -461,20 +474,29 @@ function PainelControleInner() {
   // Mantém valor + data juntos para que o tooltip do gráfico mostre de quando é
   // cada ponto (o analista precisa disso para achar a corrida a corrigir).
   const allChartPoints = rows
-    .map((r) => ({ no: r.no, value: r.values[chartLevelIdx], at: r.runAt[chartLevelIdx] }))
-    .filter((p): p is { no: number; value: number; at: string | null } => p.value !== null);
+    .map((r) => ({
+      no: r.no,
+      value: r.values[chartLevelIdx],
+      at: r.runAt[chartLevelIdx],
+      by: r.userNames?.[chartLevelIdx] ?? null,
+    }))
+    .filter(
+      (p): p is { no: number; value: number; at: string | null; by: string | null } => p.value !== null
+    );
   // Toggle "Último": mostra apenas últimas 20 corridas (janela típica de Westgard)
   const chartPoints = valoresUltimo ? allChartPoints.slice(-20) : allChartPoints;
   const chartValues = chartPoints.map((p) => p.value);
-  const chartLabels = chartPoints.map((p) => ({ no: p.no, date: fmtRunDateTime(p.at) }));
+  const chartLabels = chartPoints.map((p) => ({ no: p.no, date: fmtRunDateTime(p.at), by: p.by }));
   const chartStat = painelData?.stats[chartLevelIdx];
-  // Alvo manual (do grupo) tem prioridade como centro do gráfico
-  const chartMean =
-    chartStat?.manualTarget?.mean ?? chartStat?.statPeriod?.mean ?? chartStat?.currentStats?.mean ?? 0;
-  const chartSd =
-    chartStat?.manualTarget?.sd ?? chartStat?.statPeriod?.sd ?? chartStat?.currentStats?.sd ?? 1;
+  // Centro do gráfico = centro de referência (manual > bula > calculada), já
+  // resolvido pela API. Sem nenhuma referência, cai na média das próprias
+  // corridas só para desenhar algo.
+  const chartMean = chartStat?.center?.mean ?? chartStat?.currentStats?.mean ?? 0;
+  const chartSd = chartStat?.center?.sd ?? chartStat?.currentStats?.sd ?? 1;
 
-  const isSetupPhase = !painelData || painelData.stats.every((s) => !s.statPeriod);
+  // "Preparo" aqui = sem NENHUMA referência (nem manual, nem bula, nem 20
+  // corridas). Com bula cadastrada as regras já valem desde a 1ª corrida.
+  const isSetupPhase = !painelData || painelData.stats.every((s) => !s.center);
 
   // Westgard rules config (vem do analyte master — todas as duplicatas têm a mesma)
   const westgardRules = useMemo(() => {
@@ -685,9 +707,11 @@ function PainelControleInner() {
                             {(() => {
                               // N1 e N2 são lançados juntos — usa a primeira data disponível da linha
                               const iso = row.runAt.find((d) => !!d) ?? null;
+                              const who = row.userNames?.find((u) => !!u) ?? null;
                               const short = fmtRunDate(iso);
+                              const full = fmtRunDateTime(iso);
                               return short ? (
-                                <span title={fmtRunDateTime(iso) ?? undefined}>{short}</span>
+                                <span title={full ? (who ? `${full} · ${who}` : full) : undefined}>{short}</span>
                               ) : (
                                 <span className="text-gray-300">—</span>
                               );
@@ -946,10 +970,33 @@ function PainelControleInner() {
                         <td className="px-3 py-2 text-gray-500">Média</td>
                         {levelSlots.map((slot) => {
                           const level = slot.level;
-                          const v = painelData.stats[slot.analyteIdx]?.statPeriod?.mean ?? null;
+                          const c = painelData.stats[slot.analyteIdx]?.center ?? null;
                           return (
                             <td key={`lvl-${level}`} className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
-                              {v !== null ? v.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : <span className="text-gray-300">—</span>}
+                              {c ? (
+                                <>
+                                  {c.mean.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
+                                  {/* De onde veio o alvo — a analista precisa saber se é a bula ou um cálculo */}
+                                  <span
+                                    className={`ml-1.5 align-middle text-[9px] font-bold uppercase tracking-wide px-1 py-0.5 rounded-full ${
+                                      c.source === "calculada"
+                                        ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                                        : "bg-warning-50 text-warning-700 dark:bg-warning-900/20"
+                                    }`}
+                                    title={
+                                      c.source === "bula"
+                                        ? "Xm/DP da bula, cadastrados em Materiais"
+                                        : c.source === "manual"
+                                        ? "Média-alvo definida manualmente"
+                                        : "Calculada nas 20 corridas de preparo"
+                                    }
+                                  >
+                                    {CENTER_SOURCE_LABEL[c.source]}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
                             </td>
                           );
                         })}
@@ -958,7 +1005,7 @@ function PainelControleInner() {
                         <td className="px-3 py-2 text-gray-500">Desvio Padrão</td>
                         {levelSlots.map((slot) => {
                           const level = slot.level;
-                          const v = painelData.stats[slot.analyteIdx]?.statPeriod?.sd ?? null;
+                          const v = painelData.stats[slot.analyteIdx]?.center?.sd ?? null;
                           return (
                             <td key={`lvl-${level}`} className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
                               {v !== null ? v.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : <span className="text-gray-300">—</span>}
@@ -966,37 +1013,42 @@ function PainelControleInner() {
                           );
                         })}
                       </tr>
-                      {/* Corrente */}
+                      {/* Corrente — a pedido do laboratório, sem média/DP recalculados:
+                          o alvo é o de Uso. Fica só a dispersão das corridas (CV sobre
+                          a média de referência) e a contagem. */}
                       {[
-                        { label: "Média", key: "mean" as const },
-                        { label: "Desvio Padrão", key: "sd" as const },
                         { label: "Coef. de Variação", key: "cv" as const },
                         { label: "Nº de corridas", key: "n" as const },
                       ].map((row, ri) => (
                         <tr key={row.key} className="border-t border-gray-100 dark:border-[#1a1a1a] bg-gray-50/40 dark:bg-[#1a1a1a]/20">
                           {ri === 0 && (
-                            <td rowSpan={4} className="px-2 py-2 text-center border-r border-gray-100 dark:border-[#1a1a1a] align-middle">
+                            <td rowSpan={2} className="px-2 py-2 text-center border-r border-gray-100 dark:border-[#1a1a1a] align-middle">
                               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>Corrente</span>
                             </td>
                           )}
                           <td className="px-3 py-2 text-gray-500">{row.label}</td>
                           {levelSlots.map((slot) => {
                             const level = slot.level;
-                            const v = painelData.stats[slot.analyteIdx]?.currentStats?.[row.key] ?? null;
-                            if (v === null) return <td key={`lvl-${level}`} className="px-3 py-2 text-center text-gray-300">—</td>;
+                            const st = painelData.stats[slot.analyteIdx];
                             if (row.key === "cv") {
-                              const bad = (v as number) > 5;
+                              const v = st?.currentCv ?? null;
+                              if (v === null) return <td key={`lvl-${level}`} className="px-3 py-2 text-center text-gray-300">—</td>;
+                              const bad = v > 5;
                               return (
                                 <td key={`lvl-${level}`} className="px-3 py-2 text-center">
-                                  <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${bad ? "bg-danger-500 text-white" : "bg-success-500 text-white"}`}>
-                                    {(v as number).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                                  <span
+                                    className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${bad ? "bg-danger-500 text-white" : "bg-success-500 text-white"}`}
+                                    title="DP das corridas ÷ média de referência"
+                                  >
+                                    {v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                                   </span>
                                 </td>
                               );
                             }
+                            const n = st?.currentStats?.n ?? null;
                             return (
                               <td key={`lvl-${level}`} className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
-                                {row.key === "n" ? v : (v as number).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
+                                {n !== null ? n : <span className="text-gray-300">—</span>}
                               </td>
                             );
                           })}

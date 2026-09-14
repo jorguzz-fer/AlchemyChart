@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { requireRole, ROLES_WRITE } from "@/lib/authz";
 import { logAudit, getClientIp } from "@/lib/audit";
 import { sendControlAlert } from "@/lib/email";
-import { equipmentGroupKey } from "@/lib/equipment-group";
+import { resolveControlCenter } from "@/lib/control-center";
 
 const SETUP_THRESHOLD = 20; // runs needed to establish StatPeriod
 
@@ -145,30 +145,19 @@ export async function POST(req: Request) {
     orderBy: { createdAt: "desc" },
   });
 
-  // Alvo manual do grupo (ControlTarget) — média/DP fixada que vale para os
-  // equipamentos do par. Tem prioridade sobre a StatPeriod "USO" calculada.
-  const groupKey = equipmentGroupKey(analyte.equipment?.name ?? "");
-  const manualTarget = await prisma.controlTarget.findUnique({
-    where: {
-      tenantId_groupKey_analyteName_level: {
-        tenantId: session.user.tenantId,
-        groupKey,
-        analyteName: analyte.name,
-        level: runLevel,
-      },
-    },
+  // Centro/referência para Westgard — manual > bula > calculada nas 20 corridas
+  // (ver lib/control-center). A bula vale desde a primeira corrida: com controle
+  // ensaiado não há por que esperar a fase de preparo para aplicar as regras.
+  const center = await resolveControlCenter({
+    tenantId: session.user.tenantId,
+    analyteId: effectiveAnalyteId,
+    analyteName: analyte.name,
+    equipmentId: analyte.equipmentId,
+    equipmentName: analyte.equipment?.name ?? "",
+    level: runLevel,
   });
-
-  // Centro/referência para Westgard: manual vale na hora; senão a "USO" após 20 corridas
-  let centerMean: number | null = null;
-  let centerSd: number | null = null;
-  if (manualTarget) {
-    centerMean = manualTarget.mean;
-    centerSd = manualTarget.sd;
-  } else if (statPeriod && statPeriod.n >= SETUP_THRESHOLD) {
-    centerMean = statPeriod.mean;
-    centerSd = statPeriod.sd;
-  }
+  const centerMean = center?.mean ?? null;
+  const centerSd = center?.sd ?? null;
 
   let status: "OK" | "ALERT" | "REJECT" = "OK";
   let violations: string[] = [];

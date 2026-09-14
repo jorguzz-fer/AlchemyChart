@@ -8,6 +8,7 @@ const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false })
 interface PointLabel {
   no: number;              // nº da corrida na tabela
   date: string | null;     // data/hora do lançamento já formatada
+  by?: string | null;      // quem digitou — o supervisor pede isso no hover
 }
 
 interface Props {
@@ -97,7 +98,10 @@ export default function LeveyJenningsChart({ mean, sd, values, labels, height = 
           const i = opts?.dataPointIndex ?? -1;
           const label = i >= 0 ? labels?.[i] : undefined;
           const no = label?.no ?? val;
-          return label?.date ? `Corrida ${no} — ${label.date}` : `Corrida ${no}`;
+          const parts = [`Corrida ${no}`];
+          if (label?.date) parts.push(label.date);
+          if (label?.by) parts.push(label.by);
+          return parts.join(" — ");
         },
       },
       y: { formatter: (v) => v.toFixed(3) },

@@ -4,7 +4,7 @@ import { requireRole, ROLES_WRITE } from "@/lib/authz";
 import { logAudit, getClientIp } from "@/lib/audit";
 import { checkWestgard } from "@/lib/westgard";
 import { calculateStats } from "@/lib/stats";
-import { equipmentGroupKey } from "@/lib/equipment-group";
+import { resolveControlCenter } from "@/lib/control-center";
 
 const SETUP_THRESHOLD = 20;
 
@@ -32,6 +32,7 @@ async function recomputeAnalyteStats(analyteId: string) {
       westgardRules: true,
       name: true,
       level: true,
+      equipmentId: true,
       unitRel: { select: { tenantId: true } },
       equipment: { select: { name: true } },
     },
@@ -64,31 +65,21 @@ async function recomputeAnalyteStats(analyteId: string) {
     await prisma.statPeriod.delete({ where: { id: existingStat.id } });
   }
 
-  // Recomputa Westgard de cada corrida.
-  // Alvo manual do grupo (ControlTarget) tem prioridade sobre a StatPeriod "USO".
-  const statForCheck =
-    runs.length >= SETUP_THRESHOLD
-      ? await prisma.statPeriod.findFirst({
-          where: { analyteId, period: "USO" },
-          orderBy: { createdAt: "desc" },
-        })
-      : null;
-
-  const manualTarget = analyte
-    ? await prisma.controlTarget.findUnique({
-        where: {
-          tenantId_groupKey_analyteName_level: {
-            tenantId: analyte.unitRel.tenantId,
-            groupKey: equipmentGroupKey(analyte.equipment?.name ?? ""),
-            analyteName: analyte.name,
-            level: analyte.level,
-          },
-        },
+  // Recomputa Westgard de cada corrida contra o centro de referência
+  // (manual > bula > calculada — ver lib/control-center). Roda DEPOIS de
+  // atualizar a StatPeriod acima, para a fonte "calculada" já vir corrigida.
+  const center = analyte
+    ? await resolveControlCenter({
+        tenantId: analyte.unitRel.tenantId,
+        analyteId,
+        analyteName: analyte.name,
+        equipmentId: analyte.equipmentId,
+        equipmentName: analyte.equipment?.name ?? "",
+        level: analyte.level,
       })
     : null;
-
-  const centerMean = manualTarget?.mean ?? (statForCheck ? statForCheck.mean : null);
-  const centerSd = manualTarget?.sd ?? (statForCheck ? statForCheck.sd : null);
+  const centerMean = center?.mean ?? null;
+  const centerSd = center?.sd ?? null;
 
   for (let i = 0; i < runs.length; i++) {
     const run = runs[i];

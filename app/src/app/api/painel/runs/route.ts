@@ -3,6 +3,7 @@ import { calculateStats } from "@/lib/stats";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/authz";
 import { equipmentGroupKey } from "@/lib/equipment-group";
+import { resolveControlCenter } from "@/lib/control-center";
 
 export async function GET(req: Request) {
   const { session, error } = await requireAuth();
@@ -28,8 +29,8 @@ export async function GET(req: Request) {
 
   if (analytes.length === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Fetch runs + stat periods + alvos manuais para cada analito em paralelo
-  const [runsByAnalyte, statPeriods, manualTargets] = await Promise.all([
+  // Fetch runs + stat periods + centro de referência para cada analito em paralelo
+  const [runsByAnalyte, statPeriods, centers] = await Promise.all([
     Promise.all(
       analytes.map((a) =>
         prisma.run.findMany({
@@ -49,15 +50,13 @@ export async function GET(req: Request) {
     ),
     Promise.all(
       analytes.map((a) =>
-        prisma.controlTarget.findUnique({
-          where: {
-            tenantId_groupKey_analyteName_level: {
-              tenantId: session.user.tenantId,
-              groupKey: equipmentGroupKey(a.equipment?.name ?? ""),
-              analyteName: a.name,
-              level: a.level,
-            },
-          },
+        resolveControlCenter({
+          tenantId: session.user.tenantId,
+          analyteId: a.id,
+          analyteName: a.name,
+          equipmentId: a.equipmentId,
+          equipmentName: a.equipment?.name ?? "",
+          level: a.level,
         })
       )
     ),
@@ -73,23 +72,36 @@ export async function GET(req: Request) {
     violations: analytes.map((_, ai) => (runsByAnalyte[ai][i]?.violations ?? null) as string[] | null),
     runIds: analytes.map((_, ai) => runsByAnalyte[ai][i]?.id ?? null),
     runAt: analytes.map((_, ai) => runsByAnalyte[ai][i]?.runAt?.toISOString() ?? null),
+    // Quem digitou — o supervisor precisa disso sem ter que cruzar data com escala
+    userNames: analytes.map((_, ai) => runsByAnalyte[ai][i]?.user?.name ?? null),
   }));
 
-  const stats = analytes.map((a, i) => ({
-    statPeriod: statPeriods[i]
-      ? {
-          mean: statPeriods[i]!.mean,
-          sd: statPeriods[i]!.sd,
-          cv: statPeriods[i]!.cv,
-          n: statPeriods[i]!.n,
-        }
-      : null,
-    currentStats: calculateStats(runsByAnalyte[i].map((r) => r.value)),
-    manualTarget: manualTargets[i]
-      ? { mean: manualTargets[i]!.mean, sd: manualTargets[i]!.sd }
-      : null,
-    groupKey: equipmentGroupKey(a.equipment?.name ?? ""),
-  }));
+  const stats = analytes.map((a, i) => {
+    const center = centers[i];
+    const current = calculateStats(runsByAnalyte[i].map((r) => r.value));
+    return {
+      statPeriod: statPeriods[i]
+        ? {
+            mean: statPeriods[i]!.mean,
+            sd: statPeriods[i]!.sd,
+            cv: statPeriods[i]!.cv,
+            n: statPeriods[i]!.n,
+          }
+        : null,
+      currentStats: current,
+      // CV "referente ao meu": dispersão das corridas sobre a média de
+      // referência (bula/manual), não sobre uma média recalculada.
+      currentCv:
+        current && center && center.mean !== 0
+          ? (current.sd / center.mean) * 100
+          : current?.cv ?? null,
+      // Centro efetivo do gráfico/Westgard e de onde ele veio
+      center,
+      manualTarget:
+        center?.source === "manual" ? { mean: center.mean, sd: center.sd } : null,
+      groupKey: equipmentGroupKey(a.equipment?.name ?? ""),
+    };
+  });
 
   return NextResponse.json({ analytes, rows, stats, total: maxRuns });
 }
