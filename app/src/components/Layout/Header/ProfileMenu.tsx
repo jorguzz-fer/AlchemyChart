@@ -15,6 +15,7 @@ const MENU = [
   { href: "/admin/repair-run-levels", icon: "build", label: "Corrigir níveis das corridas" },
   { href: "/admin/repair-control-levels", icon: "science", label: "Corrigir controle de cada nível" },
   { href: "/admin/reevaluate-runs", icon: "rule", label: "Reavaliar corridas contra o alvo" },
+  { href: "/admin/purge-runs-before", icon: "auto_delete", label: "Apagar corridas anteriores a uma data" },
   { href: "/admin/purge-nivel3", icon: "delete_sweep", label: "Excluir registros de nível 3" },
   { href: "/ajuda", icon: "help", label: "Ajuda & Suporte" },
 ];
