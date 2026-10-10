@@ -5,7 +5,7 @@ import { calculateStats } from "@/lib/stats";
 import { NextResponse } from "next/server";
 import { requireRole, ROLES_WRITE } from "@/lib/authz";
 import { logAudit, getClientIp } from "@/lib/audit";
-import { sendControlAlert } from "@/lib/email";
+import { queueControlAlert } from "@/lib/alert-queue";
 import { resolveControlCenter } from "@/lib/control-center";
 
 const SETUP_THRESHOLD = 20; // runs needed to establish StatPeriod
@@ -223,13 +223,13 @@ export async function POST(req: Request) {
     ip: getClientIp(req),
   });
 
-  // Notifica supervisores + admins por e-mail quando o lançamento viola Westgard.
-  // Fire-and-forget: NÃO bloqueia o salvamento. A corrida já está gravada e a
-  // resposta retorna na hora; o e-mail sai em background (servidor Node
-  // persistente completa a promise). Assim REJEITAR/ALERTA nunca deixa o
-  // "Salvar" travando por lentidão do provedor de e-mail.
+  // Notifica supervisores + admins quando o lançamento viola Westgard.
+  // Vai para a fila de RESUMO (lib/alert-queue): tudo que chegar em 1 minuto
+  // vira um e-mail só. Antes era um e-mail por corrida, e o lançamento em
+  // massa (~80 corridas em paralelo) estourava o limite de 10/s do Resend e
+  // consumia a cota mensal em dias. Não bloqueia a resposta.
   if (status === "ALERT" || status === "REJECT") {
-    const alert = {
+    queueControlAlert(session.user.tenantId, {
       analyteName: analyte.name,
       unit: analyte.unit,
       level: runLevel,
@@ -241,20 +241,7 @@ export async function POST(req: Request) {
       runAt: run.runAt,
       mean: centerMean,
       sd: centerSd,
-    };
-    const tenantId = session.user.tenantId;
-    void (async () => {
-      try {
-        const recipients = await prisma.user.findMany({
-          where: { tenantId, active: true, role: { in: ["SUPERVISOR", "ADMIN", "SUPERADMIN"] } },
-          select: { email: true },
-        });
-        const to = recipients.map((r) => r.email).filter((e): e is string => !!e);
-        if (to.length > 0) await sendControlAlert({ to, ...alert });
-      } catch (e) {
-        console.error("[runs] Falha ao notificar supervisores:", e);
-      }
-    })();
+    });
   }
 
   return NextResponse.json(run, { status: 201 });
