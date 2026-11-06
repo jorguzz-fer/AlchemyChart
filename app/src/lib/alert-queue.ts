@@ -74,8 +74,10 @@ async function flush(tenantId: string): Promise<void> {
   }
 
   try {
+    // Quem recebe é escolha por usuário (Gerir usuários → "Recebe alertas por
+    // e-mail"), não mais derivado do perfil.
     const recipients = await prisma.user.findMany({
-      where: { tenantId, active: true, role: { in: ["SUPERVISOR", "ADMIN", "SUPERADMIN"] } },
+      where: { tenantId, active: true, alertEmails: true },
       select: { email: true },
     });
     const to = recipients.map((r) => r.email).filter((e): e is string => !!e);

@@ -14,7 +14,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { id } = await params;
   const body = await req.json();
-  const { name, email, password, role, unitId, active } = body;
+  const { name, email, password, role, unitId, active, alertEmails } = body;
 
   const target = await prisma.user.findFirst({ where: { id, tenantId: session.user.tenantId } });
   if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -47,6 +47,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     role?: AllowedRole;
     unitId?: string | null;
     active?: boolean;
+    alertEmails?: boolean;
     passwordHash?: string;
   } = {};
   if (name !== undefined) data.name = name.trim();
@@ -54,6 +55,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (role !== undefined) data.role = role as AllowedRole;
   if (unitId !== undefined) data.unitId = unitId || null;
   if (active !== undefined) data.active = active;
+  if (alertEmails !== undefined) data.alertEmails = alertEmails === true;
   if (password) {
     const pwCheck = validatePassword(password);
     if (!pwCheck.ok) return NextResponse.json({ error: pwCheck.error }, { status: 400 });
@@ -63,7 +65,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const updated = await prisma.user.update({
     where: { id },
     data,
-    select: { id: true, name: true, email: true, role: true, active: true, unitId: true },
+    select: { id: true, name: true, email: true, role: true, active: true, alertEmails: true, unitId: true },
   });
 
   await logAudit({

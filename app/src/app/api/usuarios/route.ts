@@ -15,7 +15,7 @@ export async function GET() {
   const users = await prisma.user.findMany({
     where: { tenantId: session.user.tenantId },
     select: {
-      id: true, name: true, email: true, role: true, active: true,
+      id: true, name: true, email: true, role: true, active: true, alertEmails: true,
       createdAt: true, unitId: true,
       unit: { select: { id: true, name: true } },
     },
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   if (error) return error;
 
   const body = await req.json();
-  const { name, email, password, role, unitId } = body;
+  const { name, email, password, role, unitId, alertEmails } = body;
 
   if (!name?.trim()) return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
   if (!email?.trim()) return NextResponse.json({ error: "E-mail obrigatório" }, { status: 400 });
@@ -62,8 +62,9 @@ export async function POST(req: Request) {
       email: normalizedEmail,
       passwordHash,
       role: role as AllowedRole,
+      alertEmails: alertEmails === true,
     },
-    select: { id: true, name: true, email: true, role: true, active: true, unitId: true },
+    select: { id: true, name: true, email: true, role: true, active: true, alertEmails: true, unitId: true },
   });
 
   await logAudit({

@@ -10,6 +10,7 @@ interface UserItem {
   email: string;
   role: "ADMIN" | "SUPERVISOR" | "ANALYST" | "VIEWER" | "SUPERADMIN";
   active: boolean;
+  alertEmails: boolean;
   unitId: string | null;
   unit: { id: string; name: string } | null;
   createdAt: string;
@@ -22,10 +23,11 @@ interface FormState {
   password: string;
   role: "ADMIN" | "SUPERVISOR" | "ANALYST" | "VIEWER";
   unitId: string;
+  alertEmails: boolean;
 }
 
 const EMPTY_FORM: FormState = {
-  name: "", email: "", password: "", role: "ANALYST", unitId: "",
+  name: "", email: "", password: "", role: "ANALYST", unitId: "", alertEmails: false,
 };
 
 const ROLE_META: Record<string, { label: string; desc: string; cls: string }> = {
@@ -76,6 +78,7 @@ export default function UsuariosPage() {
       password: "",
       role: (item.role === "SUPERADMIN" ? "ADMIN" : item.role) as FormState["role"],
       unitId: item.unitId ?? "",
+      alertEmails: item.alertEmails,
     });
     setError(null);
     setShowModal(true);
@@ -186,10 +189,10 @@ export default function UsuariosPage() {
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-[#0c0b0b]">
                 <tr>
-                  {["Usuário", "E-mail", "Perfil", "Unidade", "Status", "Ações"].map((h, i) => (
+                  {["Usuário", "E-mail", "Perfil", "Unidade", "Status", "Alertas", "Ações"].map((h, i) => (
                     <th
                       key={h}
-                      className={`px-6 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider ${i === 5 ? "text-center" : "text-left"}`}
+                      className={`px-6 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider ${i >= 5 ? "text-center" : "text-left"}`}
                     >
                       {h}
                     </th>
@@ -247,6 +250,24 @@ export default function UsuariosPage() {
                             className={`w-1.5 h-1.5 rounded-full ${item.active ? "bg-success-500" : "bg-gray-400"}`}
                           />
                           {item.active ? "Ativo" : "Inativo"}
+                        </span>
+                      </td>
+                      {/* Quem recebe os e-mails de alerta de controle. Só conta se o
+                          usuário estiver ativo — inativo nunca recebe. */}
+                      <td className="px-6 py-4 text-center">
+                        <span
+                          title={
+                            !item.active
+                              ? "Usuário inativo não recebe alertas"
+                              : item.alertEmails
+                              ? "Recebe os e-mails de alerta de controle"
+                              : "Não recebe alertas por e-mail"
+                          }
+                          className={`material-symbols-outlined text-[20px] ${
+                            item.active && item.alertEmails ? "text-primary-500" : "text-gray-300 dark:text-gray-600"
+                          }`}
+                        >
+                          {item.active && item.alertEmails ? "notifications_active" : "notifications_off"}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -358,6 +379,21 @@ export default function UsuariosPage() {
                   <p className="text-[11px] text-gray-400 mt-1">Você não pode alterar seu próprio perfil</p>
                 )}
               </div>
+
+              <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-[#1a1a1a] bg-gray-50 dark:bg-[#0c0b0b] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.alertEmails}
+                  onChange={(e) => setForm((f) => ({ ...f, alertEmails: e.target.checked }))}
+                  className="mt-0.5 w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500/30"
+                />
+                <span className="flex-1">
+                  <span className="block text-sm font-semibold text-black dark:text-white">Recebe alertas por e-mail</span>
+                  <span className="block text-[11px] text-gray-500 mt-0.5">
+                    Resumo dos controles em Alerta/Rejeitar a cada lançamento. Independe do perfil.
+                  </span>
+                </span>
+              </label>
 
               {units.length > 0 && (
                 <div>
